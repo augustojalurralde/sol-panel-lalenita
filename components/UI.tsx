@@ -2,7 +2,7 @@
 import type { ReactNode } from "react";
 import { fechaDeHoy } from "@/lib/formato";
 import { IconoCalendario } from "./Iconos";
-import type { Semaforo } from "@/lib/mockData";
+import type { Semaforo } from "@/lib/config";
 
 export function Encabezado({ titulo, pregunta, extra }: { titulo: string; pregunta: string; extra?: ReactNode }) {
   return (
@@ -22,24 +22,54 @@ export function Encabezado({ titulo, pregunta, extra }: { titulo: string; pregun
   );
 }
 
-export function Tarjeta({ titulo, children, className = "" }: { titulo?: string; children: ReactNode; className?: string }) {
+export function Tarjeta({ titulo, children, className = "", derecha }: { titulo?: string; children: ReactNode; className?: string; derecha?: ReactNode }) {
   return (
     <section className={`rounded-xl border border-slate-200 bg-white p-5 ${className}`}>
-      {titulo && <h2 className="mb-3 text-sm font-semibold text-slate-900">{titulo}</h2>}
+      {(titulo || derecha) && (
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          {titulo && <h2 className="text-sm font-semibold text-slate-900">{titulo}</h2>}
+          {derecha}
+        </div>
+      )}
       {children}
     </section>
   );
 }
 
-const coloresSemaforo: Record<Semaforo, string> = {
-  rojo: "bg-red-600",
-  naranja: "bg-orange-500",
-  amarillo: "bg-yellow-400",
+const fondo: Record<Semaforo, string> = {
   verde: "bg-green-600",
+  amarillo: "bg-yellow-400",
+  rojo: "bg-red-600",
+  gris: "bg-slate-300",
 };
 
+const texto: Record<Semaforo, string> = {
+  verde: "text-green-700",
+  amarillo: "text-yellow-700",
+  rojo: "text-red-600",
+  gris: "text-slate-500",
+};
+
+const pastilla: Record<Semaforo, string> = {
+  verde: "bg-green-50 text-green-700",
+  amarillo: "bg-yellow-50 text-yellow-800",
+  rojo: "bg-red-50 text-red-700",
+  gris: "bg-slate-100 text-slate-600",
+};
+
+export const colorTexto = (s: Semaforo) => texto[s];
+export const colorFondo = (s: Semaforo) => fondo[s];
+
 export function Punto({ color, className = "h-3.5 w-3.5" }: { color: Semaforo; className?: string }) {
-  return <span className={`inline-block rounded-full ${coloresSemaforo[color]} ${className}`} />;
+  return <span className={`inline-block shrink-0 rounded-full ${fondo[color]} ${className}`} />;
+}
+
+export function Pastilla({ color, children }: { color: Semaforo; children: ReactNode }) {
+  return <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${pastilla[color]}`}>{children}</span>;
+}
+
+export function SinDefinir({ texto = "Sin definir" }: { texto?: string }) {
+  return <span className="text-xs italic text-slate-400">{texto}</span>;
 }
 
 export function AvisoDatosPrueba() {

@@ -1,85 +1,73 @@
 // app/locales/page.tsx — COMPARATIVO DE LOCALES
-import { mockComparativo, type EstadoStock, type Tendencia, type Semaforo } from "@/lib/mockData";
-import { porcentaje, colorVariacion } from "@/lib/formato";
-import { Encabezado, Punto, AvisoDatosPrueba } from "@/components/UI";
+import { comparativoLocales } from "@/lib/calculos";
+import type { Tendencia } from "@/lib/mockData";
+import { pesos, porcentaje } from "@/lib/formato";
+import { Encabezado, AvisoDatosPrueba, colorTexto, colorFondo } from "@/components/UI";
 import { IconoPersona, IconoBaja, IconoEstable, IconoSube } from "@/components/Iconos";
-
-const colorPrioridad: Record<Semaforo, string> = {
-  rojo: "bg-red-600",
-  naranja: "bg-orange-500",
-  amarillo: "bg-yellow-400",
-  verde: "bg-green-600",
-};
-
-const colorStock: Record<EstadoStock, string> = {
-  Crítico: "text-red-600",
-  Bajo: "text-orange-500",
-  Alerta: "text-orange-500",
-  OK: "text-green-600",
-};
+import { semaforoVentas } from "@/lib/config";
 
 function TendenciaCelda({ t }: { t: Tendencia }) {
   if (t === "empeorando")
     return <span className="flex items-center gap-1.5 text-red-600"><IconoBaja className="h-4 w-4" />Empeorando</span>;
   if (t === "estable")
-    return <span className="flex items-center gap-1.5 text-amber-500"><IconoEstable className="h-4 w-4" />Estable</span>;
+    return <span className="flex items-center gap-1.5 text-slate-600"><IconoEstable className="h-4 w-4" />Estable</span>;
   return <span className="flex items-center gap-1.5 text-green-600"><IconoSube className="h-4 w-4" />Mejorando</span>;
 }
 
-function Encab({ titulo, sub }: { titulo: string; sub?: string }) {
-  return (
-    <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 align-bottom">
-      {titulo}
-      {sub && <span className="block font-normal text-slate-500">{sub}</span>}
-    </th>
-  );
-}
+const th = "px-3 py-3 text-xs font-semibold text-slate-700 align-bottom";
 
 export default function ComparativoLocales() {
-  const filas = [...mockComparativo].sort((a, b) => a.prioridad - b.prioridad);
+  const filas = comparativoLocales();
 
   return (
     <>
       <Encabezado titulo="Comparativo de Locales" pregunta="¿Qué local necesita atención y por qué?" />
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[1100px] text-sm">
+        <table className="w-full min-w-[1150px] text-sm">
           <thead className="border-b border-slate-200">
             <tr>
-              <Encab titulo="Prioridad" />
-              <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 align-bottom">Local</th>
-              <Encab titulo="Área Principal" />
-              <Encab titulo="Semáforo" />
-              <Encab titulo="Venta Ayer" sub="vs mismo día sem. ant." />
-              <Encab titulo="Ticket Promedio" sub="vs mismo día sem. ant." />
-              <Encab titulo="Cantidad de Tickets" sub="vs mismo día sem. ant." />
-              <Encab titulo="Stock Crítico" />
-              <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 align-bottom">Responsable</th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 align-bottom">Última Novedad</th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 align-bottom">Tendencia</th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 align-bottom">Recomendación</th>
+              <th className={`${th} text-center`}>Prioridad</th>
+              <th className={`${th} text-left`}>Local</th>
+              <th className={`${th} text-right`}>Venta Ayer</th>
+              <th className={`${th} text-right`}>Venta Mes</th>
+              <th className={`${th} text-center`}>Variación<span className="block font-normal text-slate-500">vs mismo día sem. ant.</span></th>
+              <th className={`${th} text-right`}>Ticket Promedio</th>
+              <th className={`${th} text-center`}>Área Principal</th>
+              <th className={`${th} text-left`}>Tendencia</th>
+              <th className={`${th} text-left`}>Responsable</th>
+              <th className={`${th} text-left`}>Última Novedad</th>
+              <th className={`${th} text-left`}>Recomendación</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filas.map((f) => (
-              <tr key={f.local} className="hover:bg-slate-50">
+            {filas.map((f, i) => (
+              <tr key={f.nombre} className="hover:bg-slate-50">
                 <td className="px-3 py-3.5 text-center">
-                  <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white ${colorPrioridad[f.semaforo]}`}>
-                    {f.prioridad}
+                  <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${f.semaforo === "amarillo" ? "text-slate-900" : "text-white"} ${colorFondo(f.semaforo)}`}>
+                    {i + 1}
                   </span>
                 </td>
-                <td className="px-3 py-3.5 font-semibold text-slate-900">{f.local}</td>
+                <td className="whitespace-nowrap px-3 py-3.5 font-semibold text-slate-900">{f.nombre}</td>
+                <td className="whitespace-nowrap px-3 py-3.5 text-right text-slate-900">{pesos.format(f.ventaAyer)}</td>
+                <td className="whitespace-nowrap px-3 py-3.5 text-right text-slate-700">{pesos.format(f.ventaMes)}</td>
+                <td className={`px-3 py-3.5 text-center font-medium ${colorTexto(semaforoVentas(f.variacion))}`}>{porcentaje(f.variacion)}</td>
+                <td className="whitespace-nowrap px-3 py-3.5 text-right text-slate-700">{pesos.format(f.ticketPromedio)}</td>
                 <td className="px-3 py-3.5 text-center text-slate-700">{f.area}</td>
-                <td className="px-3 py-3.5 text-center"><Punto color={f.semaforo} /></td>
-                <td className={`px-3 py-3.5 text-center font-medium ${colorVariacion(f.ventaVsSemAnt)}`}>{porcentaje(f.ventaVsSemAnt)}</td>
-                <td className={`px-3 py-3.5 text-center font-medium ${colorVariacion(f.ticketVsSemAnt)}`}>{porcentaje(f.ticketVsSemAnt)}</td>
-                <td className={`px-3 py-3.5 text-center font-medium ${colorVariacion(f.cantidadTicketsVsSemAnt)}`}>{porcentaje(f.cantidadTicketsVsSemAnt)}</td>
-                <td className={`px-3 py-3.5 text-center font-medium ${colorStock[f.stock]}`}>{f.stock}</td>
+                <td className="px-3 py-3.5 text-xs font-medium"><TendenciaCelda t={f.tendencia} /></td>
                 <td className="px-3 py-3.5 text-slate-700">
                   <span className="flex items-center gap-2"><IconoPersona className="h-4 w-4 text-slate-500" />{f.responsable}</span>
                 </td>
-                <td className="max-w-[180px] px-3 py-3.5 text-xs text-slate-700">{f.novedad}</td>
-                <td className="px-3 py-3.5 text-xs font-medium"><TendenciaCelda t={f.tendencia} /></td>
+                <td className="max-w-[200px] px-3 py-3.5 text-xs text-slate-700">
+                  {f.novedad ? (
+                    <>
+                      {f.novedad.texto}
+                      <span className="block text-slate-400">{f.novedad.fecha} · {f.novedad.cargadoPor}</span>
+                    </>
+                  ) : (
+                    <span className="text-slate-400">Sin novedades</span>
+                  )}
+                </td>
                 <td className="max-w-[200px] px-3 py-3.5 text-xs text-slate-700">{f.recomendacion}</td>
               </tr>
             ))}
@@ -87,6 +75,9 @@ export default function ComparativoLocales() {
         </table>
       </div>
       <p className="mt-2 text-xs text-slate-400 lg:hidden">Deslizá la tabla hacia los costados para ver todas las columnas.</p>
+      <p className="mt-2 text-xs text-slate-500">
+        Semáforo de ventas: verde hasta −5% · amarillo entre −5% y −10% · rojo peor que −10%. La prioridad por fórmula (severidad, plazo, impacto) se activa con datos reales.
+      </p>
 
       <AvisoDatosPrueba />
     </>
