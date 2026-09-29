@@ -1,0 +1,27 @@
+# Trae las ventas de Maxirest al SOL.
+# Corre todos los días a las 5:00 AM (Argentina) y repite cada hora hasta las 12:00,
+# así si un local hace el cierre tarde, se completa sola.
+name: Ventas Maxirest
+
+on:
+  schedule:
+    - cron: "0 8-15 * * *" # 08:00 a 15:00 UTC = 05:00 a 12:00 Argentina
+  workflow_dispatch:
+    inputs:
+      desde:
+        description: "Desde (AAAA-MM-DD). Vacío = últimos 3 días"
+        required: false
+      hasta:
+        description: "Hasta (AAAA-MM-DD). Vacío = ayer"
+        required: false
+
+jobs:
+  sincronizar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Traer ventas de Maxirest
+        run: |
+          URL="https://sol-panel-lalenita.vercel.app/api/sync/maxirest"
+          if [ -n "${{ inputs.desde }}" ]; then URL="$URL?desde=${{ inputs.desde }}&hasta=${{ inputs.hasta }}"; fi
+          curl -sS --fail-with-body --max-time 90 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "$URL"
