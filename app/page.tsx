@@ -1,28 +1,30 @@
 // app/page.tsx — INICIO / CENTRO DE DIRECCIÓN
 import Link from "next/link";
-import { mockVentas, mockEstadoDatos } from "@/lib/mockData";
+import { obtenerVentas, totales } from "@/lib/ventas";
 import { semaforoVentas } from "@/lib/config";
 import { pesos, porcentaje, variacion } from "@/lib/formato";
-import { alertas, resumenEjecutivo, tesoreriaCalculada } from "@/lib/calculos";
-import { Encabezado, Tarjeta, Punto, Pastilla, SinDefinir, AvisoDatosPrueba, colorTexto } from "@/components/UI";
+import { alertas, resumenEjecutivo, tesoreriaCalculada, estadoDatos } from "@/lib/calculos";
+import { Encabezado, Tarjeta, Punto, Pastilla, Fuente, SinDefinir, colorTexto } from "@/components/UI";
 import { IconoFlechaDerecha, IconoAlerta, IconoCheck } from "@/components/Iconos";
 
 const colorEstadoDato = { OK: "verde", Pendiente: "amarillo", Atrasado: "rojo" } as const;
 
-export default function Inicio() {
-  const v = mockVentas;
-  const varAyer = variacion(v.totalAyer, v.totalMismoDiaSemAnt);
-  const semAyer = semaforoVentas(varAyer);
-  const ticket = v.totalAyer / v.comprobantesAyer;
+export default async function Inicio() {
+  const r = await obtenerVentas();
+  const t = totales(r);
+  const varAyer = t.semAntComparable > 0 ? variacion(t.ayerComparable, t.semAntComparable) : null;
+  const semAyer = varAyer === null ? "gris" : semaforoVentas(varAyer);
+  const ticket = t.comprobantesAyer > 0 ? t.totalAyer / t.comprobantesAyer : null;
   const { disponible } = tesoreriaCalculada();
-  const listaAlertas = alertas();
-  const resumen = resumenEjecutivo();
-  const estable = listaAlertas.length === 0;
+  const listaAlertas = alertas(r);
+  const resumen = resumenEjecutivo(r);
+  const estable = !listaAlertas.some((a) => !a.prueba);
+  const fechaAyer = new Date(r.ayer + "T12:00:00Z").toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 
-  const unidades = [...v.unidades]
-    .map((u) => ({ ...u, var: variacion(u.ventaAyer, u.ventaMismoDiaSemAnt) }))
-    .sort((a, b) => b.ventaAyer - a.ventaAyer);
-  const maximo = Math.max(...unidades.map((u) => u.ventaAyer));
+  const unidades = r.unidades
+    .map((u) => ({ ...u, var: u.ventaAyer !== null && u.ventaMismoDiaSemAnt ? variacion(u.ventaAyer, u.ventaMismoDiaSemAnt) : null }))
+    .sort((a, b) => (b.ventaAyer ?? -1) - (a.ventaAyer ?? -1));
+  const maximo = Math.max(1, ...unidades.map((u) => u.ventaAyer ?? 0));
 
   return (
     <>
@@ -31,16 +33,15 @@ export default function Inicio() {
       {/* 1. Estado de los datos */}
       <Tarjeta titulo="Estado de los datos" className="mb-4">
         <div className="flex flex-wrap gap-2">
-          {mockEstadoDatos.map((d) => (
-            <div key={d.fuente} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs">
+          {estadoDatos(r).map((d) => (
+            <div key={d.fuente} className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs">
               <Punto color={colorEstadoDato[d.estado]} className="h-2.5 w-2.5" />
               <span className="font-medium text-slate-900">{d.fuente}</span>
               <span className="text-slate-500">{d.ultimoDato}</span>
               {d.estado !== "OK" && (
-                <span className={colorTexto(colorEstadoDato[d.estado])}>
-                  · {d.estado} ({d.responsable} → {d.escalamiento})
-                </span>
+                <span className={colorTexto(colorEstadoDato[d.estado])}>· {d.estado} ({d.responsable} → {d.escalamiento})</span>
               )}
+              {d.prueba && <Fuente real={false} />}
             </div>
           ))}
         </div>
@@ -52,7 +53,7 @@ export default function Inicio() {
           {estable ? <IconoCheck className="h-7 w-7" /> : <IconoAlerta className="h-7 w-7" />}
         </div>
         <div>
-          <p className="text-xs text-slate-500">Resumen ejecutivo</p>
+          <p className="text-xs text-slate-500">Resumen ejecutivo · ventas</p>
           <p className="font-semibold text-slate-900">{resumen}</p>
         </div>
       </section>
@@ -61,54 +62,70 @@ export default function Inicio() {
       <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Tarjeta className="text-center">
           <p className="text-sm font-semibold text-slate-900">Venta de Ayer</p>
-          <p className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{pesos.format(v.totalAyer)}</p>
-          <p className={`mt-1 text-sm font-medium ${colorTexto(semAyer)}`}>{porcentaje(varAyer)}</p>
-          <p className="text-xs text-slate-500">vs. mismo día sem. ant.</p>
-        </Tarjeta>
-        <Tarjeta className="text-center">
-          <p className="text-sm font-semibold text-slate-900">Venta de Hoy</p>
-          <p className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{pesos.format(v.totalHoy)}</p>
-          <p className="mt-1 text-xs text-slate-500">En curso</p>
-          <SinDefinir texto="Comparación sin definir" />
+          <p className="text-xs text-slate-500 first-letter:uppercase">{fechaAyer}</p>
+          <p className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{pesos.format(t.totalAyer)}</p>
+          {varAyer !== null ? (
+            <p className={`mt-1 text-sm font-medium ${colorTexto(semAyer)}`}>{porcentaje(varAyer)} <span className="text-xs font-normal text-slate-500">vs. mismo día sem. ant.</span></p>
+          ) : (
+            <SinDefinir texto="Sin comparación" />
+          )}
+          <p className="mt-1 text-xs text-slate-500">{t.unidadesConDatos} de {t.unidadesTotal} locales informaron</p>
+          <div className="mt-1"><Fuente real={r.real} /></div>
         </Tarjeta>
         <Tarjeta className="text-center">
           <p className="text-sm font-semibold text-slate-900">Venta del Mes</p>
-          <p className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{pesos.format(v.totalMes)}</p>
-          <p className="mt-1 text-xs text-slate-500">Ticket promedio ayer: {pesos.format(ticket)}</p>
+          <p className="text-xs text-slate-500">hasta ayer</p>
+          <p className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{pesos.format(t.totalMes)}</p>
           <SinDefinir texto="Presupuesto sin definir" />
+          <div className="mt-1"><Fuente real={r.real} /></div>
+        </Tarjeta>
+        <Tarjeta className="text-center">
+          <p className="text-sm font-semibold text-slate-900">Ticket Promedio</p>
+          <p className="text-xs text-slate-500">ayer, todos los locales</p>
+          <p className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{ticket === null ? "—" : pesos.format(ticket)}</p>
+          <p className="mt-1 text-xs text-slate-500">{t.comprobantesAyer} tickets</p>
+          <div className="mt-1"><Fuente real={r.real} /></div>
         </Tarjeta>
         <Link href="/tesoreria" className="block">
           <Tarjeta className="h-full text-center hover:border-blue-300">
             <p className="text-sm font-semibold text-slate-900">Disponible Total</p>
+            <p className="text-xs text-slate-500">cajas + bancos + MP</p>
             <p className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{pesos.format(disponible)}</p>
-            <p className="mt-1 text-xs text-slate-500">Cajas + bancos + Mercado Pago</p>
             <p className="text-xs text-blue-600">Ver tesorería →</p>
+            <div className="mt-1"><Fuente real={false} /></div>
           </Tarjeta>
         </Link>
       </div>
 
       {/* 4. Ventas por unidad + Alertas */}
       <div className="grid gap-4 lg:grid-cols-5">
-        <Tarjeta titulo="Venta de ayer por unidad" derecha={<span className="text-xs text-slate-500">vs. mismo día sem. ant.</span>} className="lg:col-span-3">
+        <Tarjeta titulo="Venta de ayer por local" derecha={<Fuente real={r.real} />} className="lg:col-span-3">
           <ul className="space-y-4">
             {unidades.map((u) => {
-              const s = semaforoVentas(u.var);
+              const s = u.var === null ? "gris" : semaforoVentas(u.var);
               return (
                 <li key={u.id}>
                   <div className="mb-1 flex items-baseline justify-between gap-4 text-sm">
                     <span className="flex items-center gap-2 font-medium text-slate-900"><Punto color={s} className="h-2.5 w-2.5" />{u.nombre}</span>
-                    <span className="flex items-baseline gap-3">
-                      <span className="text-slate-900">{pesos.format(u.ventaAyer)}</span>
-                      <span className={`w-14 text-right text-xs font-medium ${colorTexto(s)}`}>{porcentaje(u.var)}</span>
-                    </span>
+                    {u.ventaAyer === null ? (
+                      <span className="text-xs text-slate-400">Sin datos{u.ultimoDia ? ` (último: ${u.ultimoDia.slice(8, 10)}/${u.ultimoDia.slice(5, 7)})` : ""}</span>
+                    ) : (
+                      <span className="flex items-baseline gap-3">
+                        <span className="text-slate-900">{pesos.format(u.ventaAyer)}</span>
+                        <span className={`w-14 text-right text-xs font-medium ${colorTexto(s)}`}>{u.var === null ? "—" : porcentaje(u.var)}</span>
+                      </span>
+                    )}
                   </div>
                   <div className="h-2 rounded-full bg-slate-100">
-                    <div className="h-2 rounded-full bg-blue-600" style={{ width: `${(u.ventaAyer / maximo) * 100}%` }} />
+                    <div className="h-2 rounded-full bg-blue-600" style={{ width: `${((u.ventaAyer ?? 0) / maximo) * 100}%` }} />
                   </div>
                 </li>
               );
             })}
           </ul>
+          {r.sinFuente.length > 0 && (
+            <p className="mt-4 text-xs text-slate-400">Todavía sin conexión: {r.sinFuente.join(", ")}.</p>
+          )}
           <Link href="/locales" className="mt-4 flex items-center justify-center gap-1 rounded-lg border border-blue-200 bg-blue-50 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100">
             Ver comparativo de locales <IconoFlechaDerecha className="h-3.5 w-3.5" />
           </Link>
@@ -121,10 +138,13 @@ export default function Inicio() {
             <ul className="space-y-3">
               {listaAlertas.map((a) => (
                 <li key={a.texto}>
-                  <Link href={a.href} className="flex items-start gap-3 rounded-lg p-1 hover:bg-slate-50">
+                  <Link href={a.href} className={`flex items-start gap-3 rounded-lg p-1 hover:bg-slate-50 ${a.prueba ? "opacity-60" : ""}`}>
                     <Punto color={a.color} className="mt-1 h-2.5 w-2.5" />
                     <span className="flex-1 text-sm text-slate-800">{a.texto}</span>
-                    <Pastilla color="gris">{a.responsable}</Pastilla>
+                    <span className="flex flex-col items-end gap-1">
+                      <Pastilla color="gris">{a.responsable}</Pastilla>
+                      {a.prueba && <Fuente real={false} />}
+                    </span>
                   </Link>
                 </li>
               ))}
@@ -133,7 +153,9 @@ export default function Inicio() {
         </Tarjeta>
       </div>
 
-      <AvisoDatosPrueba />
+      <p className="mt-8 text-xs text-slate-400">
+        {r.real ? "Ventas: datos reales de Maxirest. Tesorería, fábrica y stock: todavía datos de prueba." : "Datos de prueba — todavía no son los datos reales de la empresa."}
+      </p>
     </>
   );
 }

@@ -90,3 +90,12 @@ export function Proximamente({ titulo, pregunta }: { titulo: string; pregunta: s
     </>
   );
 }
+
+/** Etiqueta chiquita que dice de dónde sale el dato */
+export function Fuente({ real, texto }: { real: boolean; texto?: string }) {
+  return real ? (
+    <span className="whitespace-nowrap rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700">{texto ?? "Real · Maxirest"}</span>
+  ) : (
+    <span className="whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Prueba</span>
+  );
+}
