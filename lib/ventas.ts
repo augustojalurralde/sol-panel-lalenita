@@ -7,6 +7,7 @@ import { mockVentas } from "./mockData";
 export interface VentasUnidad {
   id: number;
   nombre: string;
+  tipo: "local" | "fabrica";        // la fábrica va aparte (nunca se compara con locales)
   ventaAyer: number | null;          // null = no llegaron datos de ayer
   ventaMismoDiaSemAnt: number | null;
   ventaMes: number;
@@ -51,7 +52,7 @@ export function totales(r: ResumenVentas) {
   };
 }
 
-interface Unidad { id: number; nombre: string; maxirest_codigo: string | null }
+interface Unidad { id: number; nombre: string; maxirest_codigo: string | null; tipo?: string | null }
 interface Fila { unidad_id: number; fecha: string; total: number; cantidad_ventas: number }
 
 export async function obtenerVentas(): Promise<ResumenVentas> {
@@ -63,7 +64,7 @@ export async function obtenerVentas(): Promise<ResumenVentas> {
   const desde = [inicioMes, sumarDias(ayer, -13)].sort()[0];
 
   const [unidades, filas, cargas] = await Promise.all([
-    db.leer<Unidad>("unidades", "select=id,nombre,maxirest_codigo&activa=eq.true&order=id"),
+    db.leer<Unidad>("unidades", "select=*&activa=eq.true&order=id"),
     db.leer<Fila>("ventas_diarias", `select=unidad_id,fecha,total,cantidad_ventas&fecha=gte.${desde}&fecha=lte.${ayer}`),
     db.leer<{ creado_en: string; estado: string }>("registro_cargas", "select=creado_en,estado&fuente=eq.Maxirest&order=creado_en.desc&limit=1"),
   ]);
@@ -82,6 +83,7 @@ export async function obtenerVentas(): Promise<ResumenVentas> {
     return {
       id: u.id,
       nombre: u.nombre,
+      tipo: u.tipo === "fabrica" || (!u.tipo && u.maxirest_codigo === "29979") ? "fabrica" : "local",
       ventaAyer: fAyer ? Number(fAyer.total) : null,
       ventaMismoDiaSemAnt: fSem ? Number(fSem.total) : null,
       ventaMes: suma(inicioMes, ayer),
@@ -110,6 +112,7 @@ function ventasDePrueba(ayer: string): ResumenVentas {
     unidades: mockVentas.unidades.map((u) => ({
       id: u.id,
       nombre: u.nombre,
+      tipo: /f[aá]brica/i.test(u.nombre) ? "fabrica" as const : "local" as const,
       ventaAyer: u.ventaAyer,
       ventaMismoDiaSemAnt: u.ventaMismoDiaSemAnt,
       ventaMes: u.ventaMes,

@@ -30,6 +30,7 @@ export function comparativoLocales(r: ResumenVentas) {
       return {
         id: u.id,
         nombre: u.nombre,
+        tipo: u.tipo,
         ventaAyer: u.ventaAyer,
         ventaMes: u.ventaMes,
         variacion: varPct,

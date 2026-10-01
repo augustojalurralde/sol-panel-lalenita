@@ -35,6 +35,17 @@ export const db = {
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify(filas),
     }),
+  /** Lee TODAS las filas (Supabase entrega de a 1000 como máximo, así que pide por páginas) */
+  leerTodo: async <T>(tabla: string, consulta: string): Promise<T[]> => {
+    const todas: T[] = [];
+    for (let desde = 0; ; desde += 1000) {
+      const pagina = await rest<T[]>(`${tabla}?${consulta}&limit=1000&offset=${desde}`);
+      todas.push(...pagina);
+      if (pagina.length < 1000) return todas;
+    }
+  },
+  /** Borra las filas que cumplen el filtro (ej: "unidad_id=eq.1&fecha=gte.2026-09-01") */
+  borrar: (tabla: string, filtro: string) => rest<null>(`${tabla}?${filtro}`, { method: "DELETE", headers: { Prefer: "return=minimal" } }),
   insertar: (tabla: string, filas: object[]) =>
     rest<null>(tabla, { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify(filas) }),
 };

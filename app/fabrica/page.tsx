@@ -1,9 +1,20 @@
 // app/fabrica/page.tsx — ESTADO DE LA FÁBRICA
+// Arriba: VENTAS REALES de la fábrica (Maxirest, Central 29979), separadas en
+// Mayorista / Ventas a locales propios / De fábrica / V. menor.
+// "Ventas a locales propios" = tickets cuyo cliente está en la tabla clientes_locales_propios (no se suman a Mayorista).
+// La fábrica nunca se compara con los locales.
+// Abajo: operación de la fábrica (todavía datos de prueba).
 import type { ReactNode } from "react";
+import {
+  obtenerUnidades, obtenerTurnos, obtenerDetalle, obtenerEquivalencias, leerRango, textoRango, hayBase,
+  resumenPorTurno, cobrosResumen, articulosPorRubro, conceptoFabrica, obtenerLocalesPropios, CONCEPTOS_FABRICA,
+  type Ticket,
+} from "@/lib/detalle";
+import { SelectorRango, NotaTurnos, TablaTurnos, TablaCobros, TablaArticulos, TablaTickets } from "@/components/Detalle";
 import { mockFabrica } from "@/lib/mockData";
 import { insumosCalculados } from "@/lib/calculos";
 import { numero, pesos, decimal, colorVariacion } from "@/lib/formato";
-import { Encabezado, Tarjeta, Punto, Pastilla, AvisoDatosPrueba } from "@/components/UI";
+import { Encabezado, Tarjeta, Punto, Pastilla, AvisoDatosPrueba, Fuente } from "@/components/UI";
 import { IconoAlerta, IconoCheck, IconoPersona, IconoActualizar } from "@/components/Iconos";
 
 function Kpi({ titulo, valor, pie, color = "text-slate-900", children }: {
@@ -19,7 +30,76 @@ function Kpi({ titulo, valor, pie, color = "text-slate-900", children }: {
   );
 }
 
-export default function EstadoFabrica() {
+/** Ventas reales de la fábrica para una fecha o rango */
+async function VentasFabrica({ desde, hasta }: { desde: string; hasta: string }) {
+  const fabrica = (await obtenerUnidades()).find((u) => u.tipo === "fabrica");
+  if (!fabrica) return null;
+  const [turnos, equivalencias, propios, d] = await Promise.all([
+    obtenerTurnos("fabrica"), obtenerEquivalencias("fabrica"), obtenerLocalesPropios(), obtenerDetalle([fabrica.id], desde, hasta),
+  ]);
+  const concepto = (t: Ticket) => conceptoFabrica(t, propios);
+  const total = d.tickets.reduce((s, t) => s + t.total, 0);
+  const porConcepto = new Map<string, { tickets: number; venta: number }>(CONCEPTOS_FABRICA.map((c) => [c, { tickets: 0, venta: 0 }]));
+  for (const t of d.tickets) {
+    const c = concepto(t);
+    const x = porConcepto.get(c) ?? { tickets: 0, venta: 0 };
+    x.tickets++; x.venta += t.total;
+    porConcepto.set(c, x);
+  }
+  const arts = articulosPorRubro(d.articulos, equivalencias);
+
+  return (
+    <section className="mb-8">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="text-lg font-bold text-slate-900">Ventas de la fábrica · {textoRango(desde, hasta)}</h2>
+        <Fuente real={hayBase()} />
+      </div>
+      <SelectorRango base="/fabrica" desde={desde} hasta={hasta} />
+      {!d.tickets.length ? (
+        <p className="rounded-xl border border-slate-200 bg-white py-10 text-center text-slate-500">No hay ventas de la fábrica cargadas para {textoRango(desde, hasta)}.</p>
+      ) : (
+        <>
+          <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-3 2xl:grid-cols-6">
+            {[...porConcepto.entries()].map(([c, x]) => (
+              <Tarjeta key={c} className="text-center">
+                <p className="text-sm font-semibold text-slate-900">{c}</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">{pesos.format(x.venta)}</p>
+                <p className="mt-1 text-xs text-slate-500">{numero.format(x.tickets)} tickets{x.tickets ? ` · prom. ${pesos.format(x.venta / x.tickets)}` : ""}</p>
+                <p className="text-xs text-slate-400">{total ? Math.round((x.venta / total) * 100) : 0}% de la venta</p>
+              </Tarjeta>
+            ))}
+            <Tarjeta className="text-center">
+              <p className="text-sm font-semibold text-slate-900">Total fábrica</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">{pesos.format(total)}</p>
+              <p className="mt-1 text-xs text-slate-500">{numero.format(d.tickets.length)} tickets</p>
+            </Tarjeta>
+            <Tarjeta className="text-center">
+              <p className="text-sm font-semibold text-slate-900">Empanadas vendidas</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">{numero.format(arts.empanadas)}</p>
+              <p className="mt-1 text-xs text-slate-500">equivalentes (tablas, cajas, docenas…)</p>
+            </Tarjeta>
+          </div>
+          <p className="mb-2 text-xs text-slate-500">
+            &quot;Ventas a locales propios&quot; = ventas cuyo cliente en Maxirest es un local propio ({[...propios].join(", ") || "ninguno cargado"}). No se suman a Mayorista. La lista se edita en Supabase, tabla clientes_locales_propios.
+          </p>
+          <NotaTurnos turnos={turnos} />
+          <div className="grid gap-4 2xl:grid-cols-5">
+            <div className="2xl:col-span-3"><TablaTurnos filas={resumenPorTurno(d.tickets, turnos, concepto)} /></div>
+            <div className="2xl:col-span-2"><TablaCobros {...cobrosResumen(d.cobros)} /></div>
+          </div>
+          <div className="mt-4"><TablaArticulos grupos={arts.grupos} turnos={arts.turnos} conEmpanadas /></div>
+          <p className="mt-2 text-xs text-slate-500">
+            Empanadas equivalentes según la tabla de equivalencias (editable en Supabase): tabla Tucumán 42, tabla sfijas 36, caja *120, caja 90 g 175, caja 80 g 160, docena 12, paquete x6, suelta 1. Pizzas, wraps y tartas no cuentan.
+          </p>
+          <div className="mt-4"><TablaTickets tickets={d.tickets} turnos={turnos} concepto={concepto} /></div>
+        </>
+      )}
+    </section>
+  );
+}
+
+export default async function EstadoFabrica({ searchParams }: { searchParams: Promise<{ desde?: string; hasta?: string }> }) {
+  const { desde, hasta } = leerRango(await searchParams);
   const f = mockFabrica;
   const p = f.produccion;
   const cumplimiento = Math.round((p.realizadaKg / p.planificadaKg) * 100);
@@ -39,6 +119,10 @@ export default function EstadoFabrica() {
           </div>
         }
       />
+
+      <VentasFabrica desde={desde} hasta={hasta} />
+
+      <h2 className="mb-3 text-lg font-bold text-slate-900">Operación de la fábrica <span className="text-sm font-normal text-slate-400">(datos de prueba)</span></h2>
 
       {/* Estado general */}
       <Tarjeta className="mb-4">

@@ -41,7 +41,12 @@ Ventas → Romina · Producción → Pablo planifica, Iván registra · Check-in
 - Resumen ejecutivo en una frase (ej: "La operación general está estable. Revisar Barrio Sur por caída de ventas y comprar nalga por cobertura crítica.").
 - No mostrar alertas menores que no requieran acción.
 - Decisión: Inicio no repite los 11 indicadores; producción/personal/despachos viven en Fábrica y suben a Inicio solo como alerta.
-- Ranking de artículos vendidos: pendiente (requiere datos de Maxirest).
+- Detalle de ventas (Maxirest, migración 002): sin ítems nuevos en el menú.
+  - Comparativo de Locales: solo locales (la fábrica nunca se compara) + cuadro "Por turno" (día vs mismo día semana anterior). Tocar un local abre su detalle (/locales/[id]).
+  - Detalle de local, con fecha o rango: resumen por turno, formas de cobro, artículos y tickets.
+  - Estado de la Fábrica: ventas reales separadas en Mayorista / Ventas a locales propios / De fábrica / V. menor (locales propios = tabla editable clientes_locales_propios; no se suman a Mayorista), empanadas equivalentes (tabla equivalencias_empanadas), cobros, artículos y tickets.
+  - Turnos de tickets por HORA DE ENTRADA (tabla turnos_config): Mediodía 10:30-15:30, Noche 19:30-06:00, Fábrica 06:00-16:00; el resto "Fuera de turno". Artículos y cobros usan el turno de Maxirest (1 = Mediodía, 2 = Noche).
+  - Pago dividido: un ticket por comprobante, total contado una sola vez.
 - Mercado Pago cuenta como dinero disponible en el MVP.
 
 ### 4. Comparativo de Locales
