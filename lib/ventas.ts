@@ -8,6 +8,8 @@ export interface VentasUnidad {
   id: number;
   nombre: string;
   tipo: "local" | "fabrica";        // la fábrica va aparte (nunca se compara con locales)
+  grupo: string;                     // "La Leñita" o "Molinos y Tocka" (este va aparte, no se suma)
+  fuente: "maxirest" | "planilla";
   ventaAyer: number | null;          // null = no llegaron datos de ayer
   ventaMismoDiaSemAnt: number | null;
   ventaMes: number;
@@ -43,6 +45,8 @@ export function totales(r: ResumenVentas) {
   return {
     totalAyer: conAyer.reduce((s, u) => s + (u.ventaAyer ?? 0), 0),
     comprobantesAyer: conAyer.reduce((s, u) => s + (u.comprobantesAyer ?? 0), 0),
+    // venta solo de las unidades que informan tickets (las de planilla no), para el ticket promedio
+    ventaConTickets: conAyer.filter((u) => (u.comprobantesAyer ?? 0) > 0).reduce((s, u) => s + (u.ventaAyer ?? 0), 0),
     // la comparación solo usa unidades que tienen los dos días (para no comparar peras con manzanas)
     ayerComparable: conAmbos.reduce((s, u) => s + (u.ventaAyer ?? 0), 0),
     semAntComparable: conAmbos.reduce((s, u) => s + (u.ventaMismoDiaSemAnt ?? 0), 0),
@@ -52,7 +56,7 @@ export function totales(r: ResumenVentas) {
   };
 }
 
-interface Unidad { id: number; nombre: string; maxirest_codigo: string | null; tipo?: string | null }
+interface Unidad { id: number; nombre: string; maxirest_codigo: string | null; tipo?: string | null; grupo?: string | null; fuente?: string | null }
 interface Fila { unidad_id: number; fecha: string; total: number; cantidad_ventas: number }
 
 export async function obtenerVentas(): Promise<ResumenVentas> {
@@ -69,7 +73,9 @@ export async function obtenerVentas(): Promise<ResumenVentas> {
     db.leer<{ creado_en: string; estado: string }>("registro_cargas", "select=creado_en,estado&fuente=eq.Maxirest&order=creado_en.desc&limit=1"),
   ]);
 
-  const conFuente = unidades.filter((u) => u.maxirest_codigo);
+  // Con fuente = Maxirest o planilla de Google (Molinos, Tocka, ferias)
+  const fuenteDe = (u: Unidad) => (u.fuente === "planilla" ? "planilla" : u.maxirest_codigo ? "maxirest" : null);
+  const conFuente = unidades.filter((u) => fuenteDe(u));
   const ultimos = await Promise.all(
     conFuente.map((u) => db.leer<{ fecha: string }>("ventas_diarias", `select=fecha&unidad_id=eq.${u.id}&order=fecha.desc&limit=1`)),
   );
@@ -84,6 +90,8 @@ export async function obtenerVentas(): Promise<ResumenVentas> {
       id: u.id,
       nombre: u.nombre,
       tipo: u.tipo === "fabrica" || (!u.tipo && u.maxirest_codigo === "29979") ? "fabrica" : "local",
+      grupo: u.grupo || "La Leñita",
+      fuente: fuenteDe(u) as "maxirest" | "planilla",
       ventaAyer: fAyer ? Number(fAyer.total) : null,
       ventaMismoDiaSemAnt: fSem ? Number(fSem.total) : null,
       ventaMes: suma(inicioMes, ayer),
@@ -99,7 +107,7 @@ export async function obtenerVentas(): Promise<ResumenVentas> {
     real: true,
     ayer,
     unidades: lista,
-    sinFuente: unidades.filter((u) => !u.maxirest_codigo).map((u) => u.nombre),
+    sinFuente: unidades.filter((u) => !fuenteDe(u)).map((u) => u.nombre),
     ultimaCarga: cargas[0]?.creado_en ?? null,
     ultimaCargaOk: cargas[0]?.estado !== "ERROR",
   };
@@ -113,6 +121,8 @@ function ventasDePrueba(ayer: string): ResumenVentas {
       id: u.id,
       nombre: u.nombre,
       tipo: /f[aá]brica/i.test(u.nombre) ? "fabrica" as const : "local" as const,
+      grupo: "La Leñita",
+      fuente: "maxirest" as const,
       ventaAyer: u.ventaAyer,
       ventaMismoDiaSemAnt: u.ventaMismoDiaSemAnt,
       ventaMes: u.ventaMes,

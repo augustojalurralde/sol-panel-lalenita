@@ -7,18 +7,22 @@ import { alertas, resumenEjecutivo, tesoreriaCalculada, estadoDatos } from "@/li
 import { Encabezado, Tarjeta, Punto, Pastilla, Fuente, SinDefinir, colorTexto } from "@/components/UI";
 import { IconoFlechaDerecha, IconoAlerta, IconoCheck } from "@/components/Iconos";
 
+const GRUPO_APARTE = "Molinos y Tocka";
+
 const colorEstadoDato = { OK: "verde", Pendiente: "amarillo", Atrasado: "rojo" } as const;
 
 export default async function Inicio() {
   const r = await obtenerVentas();
   // Venta al público = solo locales. La fábrica va aparte, arriba (nunca se suma ni se compara con los locales).
-  const rLocales = { ...r, unidades: r.unidades.filter((u) => u.tipo === "local") };
+  const rLocales = { ...r, unidades: r.unidades.filter((u) => u.tipo === "local" && u.grupo !== GRUPO_APARTE) };
+  // Molinos y Tocka: se muestran en su propio recuadro, sin sumarse a La Leñita
+  const aparte = r.unidades.filter((u) => u.tipo === "local" && u.grupo === GRUPO_APARTE);
   const fabrica = r.unidades.find((u) => u.tipo === "fabrica") ?? null;
   const varFabrica = fabrica && fabrica.ventaAyer !== null && fabrica.ventaMismoDiaSemAnt ? variacion(fabrica.ventaAyer, fabrica.ventaMismoDiaSemAnt) : null;
   const t = totales(rLocales);
   const varAyer = t.semAntComparable > 0 ? variacion(t.ayerComparable, t.semAntComparable) : null;
   const semAyer = varAyer === null ? "gris" : semaforoVentas(varAyer);
-  const ticket = t.comprobantesAyer > 0 ? t.totalAyer / t.comprobantesAyer : null;
+  const ticket = t.comprobantesAyer > 0 ? t.ventaConTickets / t.comprobantesAyer : null;
   const { disponible } = tesoreriaCalculada();
   const listaAlertas = alertas(r);
   const resumen = resumenEjecutivo(r);
@@ -113,7 +117,7 @@ export default async function Inicio() {
         </Tarjeta>
         <Tarjeta className="text-center">
           <p className="text-sm font-semibold text-slate-900">Ticket Promedio</p>
-          <p className="text-xs text-slate-500">ayer, locales</p>
+          <p className="text-xs text-slate-500">ayer, locales con Maxirest</p>
           <p className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{ticket === null ? "—" : pesos.format(ticket)}</p>
           <p className="mt-1 text-xs text-slate-500">{t.comprobantesAyer} tickets</p>
           <div className="mt-1"><Fuente real={r.real} /></div>
@@ -129,7 +133,37 @@ export default async function Inicio() {
         </Link>
       </div>
 
-      {/* 5. Ventas por local + Alertas */}
+      {/* 5. Molinos y Tocka (aparte, no se suman a La Leñita) */}
+      {aparte.length > 0 && (
+        <section className="mb-4 rounded-xl border border-slate-200 bg-white p-5">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold text-slate-900">{GRUPO_APARTE} <span className="font-normal text-slate-500">· aparte, no se suma a La Leñita</span></h2>
+            <Fuente real={r.real} texto="Real · Planilla" />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-4">
+            {aparte.map((u) => {
+              const v = u.ventaAyer !== null && u.ventaMismoDiaSemAnt ? variacion(u.ventaAyer, u.ventaMismoDiaSemAnt) : null;
+              return (
+                <div key={u.id} className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-sm font-medium text-slate-900">{u.nombre}</p>
+                  <p className="mt-1 text-lg font-bold text-slate-900">{u.ventaAyer === null ? <span className="text-sm font-normal text-slate-400">Sin venta cargada</span> : pesos.format(u.ventaAyer)}</p>
+                  {v !== null && <p className={`text-xs font-medium ${colorTexto(semaforoVentas(v))}`}>{porcentaje(v)} <span className="font-normal text-slate-500">vs. sem. ant.</span></p>}
+                  <p className="mt-1 text-xs text-slate-500">Mes: {pesos.format(u.ventaMes)}</p>
+                </div>
+              );
+            })}
+            <div className="rounded-lg border border-slate-200 p-3">
+              <p className="text-sm font-semibold text-slate-900">Total del grupo</p>
+              <p className="mt-1 text-lg font-bold text-slate-900">{pesos.format(aparte.reduce((s, u) => s + (u.ventaAyer ?? 0), 0))}</p>
+              <p className="text-xs text-slate-500">ayer</p>
+              <p className="mt-1 text-xs text-slate-500">Mes: {pesos.format(aparte.reduce((s, u) => s + u.ventaMes, 0))}</p>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-slate-400">Se cargan desde la PLANILLA ROMINA (Google). Un día sin venta cargada puede ser día cerrado o que todavía no se completó.</p>
+        </section>
+      )}
+
+      {/* 6. Ventas por local + Alertas */}
       <div className="grid gap-4 lg:grid-cols-5">
         <Tarjeta titulo="Venta de ayer por local" derecha={<Fuente real={r.real} />} className="lg:col-span-3">
           <ul className="space-y-4">

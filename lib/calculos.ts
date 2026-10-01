@@ -20,7 +20,7 @@ export function comparativoLocales(r: ResumenVentas) {
       const tendencia = u.previos7 > 0 ? variacion(u.ultimos7, u.previos7) : null;
 
       let recomendacion = "Sin acción necesaria";
-      if (!tieneAyer) recomendacion = "Verificar cierre y sincronización de Maxirest";
+      if (!tieneAyer) recomendacion = u.fuente === "planilla" ? "Sin venta cargada en la planilla (¿día cerrado?)" : "Verificar cierre y sincronización de Maxirest";
       else if (varPct === null) recomendacion = "Sin comparación (no hay datos de la semana anterior)";
       else if (semaforo !== "verde") {
         if (ticket !== null && ticketSemAnt !== null && ticket < ticketSemAnt) recomendacion = "Revisar ticket promedio";
@@ -31,6 +31,8 @@ export function comparativoLocales(r: ResumenVentas) {
         id: u.id,
         nombre: u.nombre,
         tipo: u.tipo,
+        grupo: u.grupo,
+        fuente: u.fuente,
         ventaAyer: u.ventaAyer,
         ventaMes: u.ventaMes,
         variacion: varPct,
@@ -85,13 +87,14 @@ export function estadoDatos(r: ResumenVentas) {
   if (!r.real) {
     ventas = { ...mockEstadoDatos[0], prueba: true };
   } else {
-    const faltan = r.unidades.filter((u) => u.ventaAyer === null).map((u) => u.nombre);
+    const mx = r.unidades.filter((u) => u.fuente === "maxirest");
+    const faltan = mx.filter((u) => u.ventaAyer === null).map((u) => u.nombre);
     const hora = r.ultimaCarga
       ? new Date(r.ultimaCarga).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" })
       : "nunca";
     ventas = {
       fuente: "Ventas (Maxirest)",
-      ultimoDato: `Carga ${hora} · ayer ${fechaCorta(r.ayer)}: ${r.unidades.length - faltan.length} de ${r.unidades.length} (locales y fábrica)`,
+      ultimoDato: `Carga ${hora} · ayer ${fechaCorta(r.ayer)}: ${mx.length - faltan.length} de ${mx.length} (locales y fábrica)`,
       estado: !r.ultimaCargaOk ? "Atrasado" : faltan.length ? "Pendiente" : "OK",
       responsable: "Romina",
       escalamiento: "Augusto",
@@ -108,7 +111,7 @@ export interface Alerta { texto: string; responsable: string; href: string; colo
 export function alertas(r: ResumenVentas): Alerta[] {
   const lista: Alerta[] = [];
   for (const l of comparativoLocales(r)) {
-    if (l.ventaAyer === null)
+    if (l.ventaAyer === null && l.fuente === "maxirest")
       lista.push({ texto: `${l.nombre}: sin datos de ventas de ayer (falta cierre o sincronización)`, responsable: l.responsable, href: "/locales", color: "gris", prueba: !r.real });
     else if (l.semaforo === "rojo")
       lista.push({ texto: `${l.nombre}: venta de ayer ${decimal(l.variacion!)}% vs. semana anterior`, responsable: l.responsable, href: "/locales", color: "rojo", prueba: !r.real });
@@ -131,7 +134,7 @@ export function alertas(r: ResumenVentas): Alerta[] {
 export function resumenEjecutivo(r: ResumenVentas): string {
   const filas = comparativoLocales(r);
   const caidas = filas.filter((l) => l.semaforo === "rojo").map((l) => l.nombre);
-  const sinDatos = filas.filter((l) => l.ventaAyer === null).map((l) => l.nombre);
+  const sinDatos = filas.filter((l) => l.ventaAyer === null && l.fuente === "maxirest").map((l) => l.nombre);
 
   const partes: string[] = [];
   if (caidas.length) partes.push(`revisar ${unir(caidas)} por caída de ventas`);

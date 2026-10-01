@@ -101,7 +101,9 @@ export default async function ComparativoLocales({ searchParams }: { searchParam
   const sp = await searchParams;
   const fecha = sp.fecha && /^\d{4}-\d{2}-\d{2}$/.test(sp.fecha) && sp.fecha <= ayer() ? sp.fecha : ayer();
   const r = await obtenerVentas();
-  const filas = comparativoLocales(r).filter((f) => f.tipo === "local");
+  const todas = comparativoLocales(r).filter((f) => f.tipo === "local");
+  const filas = todas.filter((f) => f.grupo !== "Molinos y Tocka");
+  const aparte = todas.filter((f) => f.grupo === "Molinos y Tocka");
 
   return (
     <>
@@ -133,7 +135,11 @@ export default async function ComparativoLocales({ searchParams }: { searchParam
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-3 py-3.5 font-semibold">
-                  <Link href={`/locales/${f.id}`} className="text-slate-900 hover:text-blue-600 hover:underline">{f.nombre}</Link>
+                  {f.fuente === "maxirest" ? (
+                    <Link href={`/locales/${f.id}`} className="text-slate-900 hover:text-blue-600 hover:underline">{f.nombre}</Link>
+                  ) : (
+                    <span className="text-slate-900">{f.nombre} <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">planilla</span></span>
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-3 py-3.5 text-right text-slate-900">
                   {f.ventaAyer === null ? <span className="text-xs text-slate-400">Sin datos</span> : pesos.format(f.ventaAyer)}
@@ -147,7 +153,7 @@ export default async function ComparativoLocales({ searchParams }: { searchParam
                   <span className="flex items-center gap-2"><IconoPersona className="h-4 w-4 text-slate-500" />{f.responsable}</span>
                 </td>
                 <td className="max-w-[180px] px-3 py-3.5 text-xs text-slate-400">
-                  {f.ventaAyer === null && f.ultimoDia ? `Último dato: ${f.ultimoDia.slice(8, 10)}/${f.ultimoDia.slice(5, 7)}` : f.ultimoDia ? "Sin novedades" : "Nunca informó ventas a Maxirest online"}
+                  {f.ventaAyer === null && f.ultimoDia ? `Último dato: ${f.ultimoDia.slice(8, 10)}/${f.ultimoDia.slice(5, 7)}` : f.ultimoDia ? "Sin novedades" : f.fuente === "planilla" ? "Todavía no hay ventas cargadas" : "Nunca informó ventas a Maxirest online"}
                 </td>
                 <td className="max-w-[200px] px-3 py-3.5 text-xs text-slate-700">{f.recomendacion}</td>
               </tr>
@@ -161,6 +167,35 @@ export default async function ComparativoLocales({ searchParams }: { searchParam
         {r.sinFuente.length > 0 && ` Todavía sin conexión: ${r.sinFuente.join(", ")}.`}
         {" "}La fábrica no se compara con los locales: se ve en Estado de la Fábrica. Tocá un local para ver su detalle (turnos, cobros, artículos y tickets).
       </p>
+
+      {aparte.length > 0 && (
+        <Tarjeta className="mt-6" titulo="Molinos y Tocka" derecha={<span className="text-xs text-slate-500">aparte · no se suman a La Leñita · desde la planilla</span>}>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="border-b border-slate-200">
+                <tr>
+                  <th className={`${th} text-left`}>Local</th>
+                  <th className={`${th} text-right`}>Venta Ayer</th>
+                  <th className={`${th} text-center`}>Variación<span className="block font-normal text-slate-500">vs mismo día sem. ant.</span></th>
+                  <th className={`${th} text-right`}>Venta Mes</th>
+                  <th className={`${th} text-left`}>Tendencia<span className="block font-normal text-slate-500">7 días vs 7 anteriores</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {aparte.map((f) => (
+                  <tr key={f.id}>
+                    <td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-900">{f.nombre}</td>
+                    <td className="whitespace-nowrap px-3 py-3 text-right text-slate-900">{f.ventaAyer === null ? <span className="text-xs text-slate-400">Sin venta cargada</span> : pesos.format(f.ventaAyer)}</td>
+                    <td className={`px-3 py-3 text-center font-medium ${colorTexto(f.semaforo)}`}>{f.variacion === null ? "—" : porcentaje(f.variacion)}</td>
+                    <td className="whitespace-nowrap px-3 py-3 text-right text-slate-700">{pesos.format(f.ventaMes)}</td>
+                    <td className="px-3 py-3 text-xs font-medium"><TendenciaCelda pct={f.tendencia} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Tarjeta>
+      )}
 
       <PorTurno fecha={fecha} />
     </>
