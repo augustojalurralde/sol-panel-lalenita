@@ -27,7 +27,7 @@ export function SelectorRango({ base, desde, hasta, extra }: { base: string; des
           );
         })}
       </div>
-      <form action={base} className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+      <form key={`${desde}-${hasta}`} action={base} className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
         <label className="flex items-center gap-1.5">Desde
           <input type="date" name="desde" defaultValue={desde} className="rounded-lg border border-slate-200 px-2 py-1.5 text-slate-800" />
         </label>
