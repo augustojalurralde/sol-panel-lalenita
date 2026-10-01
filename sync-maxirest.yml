@@ -1,0 +1,72 @@
+# Trae las ventas de Maxirest al SOL: totales del día + detalle (tickets, formas de cobro y artículos).
+# Corre todos los días a las 5:00 AM (Argentina) y repite cada hora hasta las 12:00,
+# así si un local hace el cierre tarde, se completa sola.
+#
+# HISTORIAL: Actions → "Ventas Maxirest" → Run workflow → completar "Historial desde" (ej: 2025-10).
+# Carga el detalle mes por mes y local por local, desde ese mes hasta hoy.
+name: Ventas Maxirest
+
+on:
+  schedule:
+    - cron: "0 8-15 * * *" # 08:00 a 15:00 UTC = 05:00 a 12:00 Argentina
+  workflow_dispatch:
+    inputs:
+      desde:
+        description: "Totales del día · desde (AAAA-MM-DD). Vacío = últimos 3 días"
+        required: false
+      hasta:
+        description: "Totales del día · hasta (AAAA-MM-DD). Vacío = ayer"
+        required: false
+      historial_desde:
+        description: "Historial del detalle · desde el mes (AAAA-MM, ej: 2025-10). Vacío = no cargar historial"
+        required: false
+      historial_hasta:
+        description: "Historial del detalle · hasta el mes (AAAA-MM). Vacío = mes actual"
+        required: false
+
+jobs:
+  sincronizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      PANEL: https://sol-panel-lalenita.vercel.app
+      CLAVE: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Traer totales del día
+        run: |
+          URL="$PANEL/api/sync/maxirest"
+          if [ -n "${{ inputs.desde }}" ]; then URL="$URL?desde=${{ inputs.desde }}&hasta=${{ inputs.hasta }}"; fi
+          curl -sS --fail-with-body --max-time 90 -H "Authorization: Bearer $CLAVE" "$URL"
+
+      - name: Traer detalle de los últimos días (tickets, cobros, artículos)
+        if: ${{ !inputs.historial_desde }}
+        run: |
+          curl -sS --fail-with-body --max-time 90 -H "Authorization: Bearer $CLAVE" "$PANEL/api/sync/detalle"
+
+      - name: Cargar historial del detalle (mes por mes, local por local)
+        if: ${{ inputs.historial_desde }}
+        run: |
+          UNIDADES=$(curl -sS --fail-with-body -H "Authorization: Bearer $CLAVE" "$PANEL/api/sync/detalle?listar=1" | jq -r '.[].id')
+          MES="${{ inputs.historial_desde }}-01"
+          HASTA_MES="${{ inputs.historial_hasta }}"
+          if [ -z "$HASTA_MES" ]; then HASTA_MES=$(TZ=America/Argentina/Buenos_Aires date +%Y-%m); fi
+          AYER=$(TZ=America/Argentina/Buenos_Aires date -d yesterday +%F)
+          FALLAS=0
+          while [[ "${MES:0:7}" < "$HASTA_MES" || "${MES:0:7}" == "$HASTA_MES" ]]; do
+            FIN=$(date -d "$MES +1 month -1 day" +%F)
+            if [[ "$FIN" > "$AYER" ]]; then FIN="$AYER"; fi
+            for U in $UNIDADES; do
+              echo "== ${MES:0:7} · unidad $U"
+              OK=0
+              for INTENTO in 1 2; do
+                if curl -sS --fail-with-body --max-time 90 -H "Authorization: Bearer $CLAVE" \
+                     "$PANEL/api/sync/detalle?desde=$MES&hasta=$FIN&unidad=$U"; then OK=1; break; fi
+                echo " (falló el intento $INTENTO)"; sleep 10
+              done
+              [ $OK = 1 ] || FALLAS=$((FALLAS+1))
+              echo
+            done
+            MES=$(date -d "$MES +1 month" +%F)
+          done
+          echo "Tramos con error: $FALLAS"
+          [ $FALLAS = 0 ]
