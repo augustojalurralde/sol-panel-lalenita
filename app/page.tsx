@@ -11,7 +11,11 @@ const colorEstadoDato = { OK: "verde", Pendiente: "amarillo", Atrasado: "rojo" }
 
 export default async function Inicio() {
   const r = await obtenerVentas();
-  const t = totales(r);
+  // Venta al público = solo locales. La fábrica va aparte, arriba (nunca se suma ni se compara con los locales).
+  const rLocales = { ...r, unidades: r.unidades.filter((u) => u.tipo === "local") };
+  const fabrica = r.unidades.find((u) => u.tipo === "fabrica") ?? null;
+  const varFabrica = fabrica && fabrica.ventaAyer !== null && fabrica.ventaMismoDiaSemAnt ? variacion(fabrica.ventaAyer, fabrica.ventaMismoDiaSemAnt) : null;
+  const t = totales(rLocales);
   const varAyer = t.semAntComparable > 0 ? variacion(t.ayerComparable, t.semAntComparable) : null;
   const semAyer = varAyer === null ? "gris" : semaforoVentas(varAyer);
   const ticket = t.comprobantesAyer > 0 ? t.totalAyer / t.comprobantesAyer : null;
@@ -21,7 +25,7 @@ export default async function Inicio() {
   const estable = !listaAlertas.some((a) => !a.prueba);
   const fechaAyer = new Date(r.ayer + "T12:00:00Z").toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 
-  const unidades = r.unidades
+  const unidades = rLocales.unidades
     .map((u) => ({ ...u, var: u.ventaAyer !== null && u.ventaMismoDiaSemAnt ? variacion(u.ventaAyer, u.ventaMismoDiaSemAnt) : null }))
     .sort((a, b) => (b.ventaAyer ?? -1) - (a.ventaAyer ?? -1));
   const maximo = Math.max(1, ...unidades.map((u) => u.ventaAyer ?? 0));
@@ -58,10 +62,38 @@ export default async function Inicio() {
         </div>
       </section>
 
-      {/* 3. Números principales */}
+      {/* 3. Fábrica (aparte: venta mayorista y a locales propios, no es venta al público) */}
+      {fabrica && (
+        <Link href="/fabrica" className="mb-4 block">
+          <section className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 hover:border-blue-300 sm:grid-cols-2">
+            <div className="text-center">
+              <p className="text-sm font-semibold text-slate-900">Fábrica · venta de ayer</p>
+              <p className="text-xs text-slate-500 first-letter:uppercase">{fechaAyer}</p>
+              {fabrica.ventaAyer === null ? (
+                <p className="mt-2 text-sm text-slate-400">Sin datos{fabrica.ultimoDia ? ` (último: ${fabrica.ultimoDia.slice(8, 10)}/${fabrica.ultimoDia.slice(5, 7)})` : ""}</p>
+              ) : (
+                <>
+                  <p className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{pesos.format(fabrica.ventaAyer)}</p>
+                  {varFabrica !== null && (
+                    <p className="mt-1 text-sm font-medium text-slate-600">{porcentaje(varFabrica)} <span className="text-xs font-normal text-slate-500">vs. mismo día sem. ant.</span></p>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="text-center sm:border-l sm:border-slate-200">
+              <p className="text-sm font-semibold text-slate-900">Fábrica · venta del mes</p>
+              <p className="text-xs text-slate-500">hasta ayer</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{pesos.format(fabrica.ventaMes)}</p>
+              <p className="mt-1 text-xs text-blue-600">Ver detalle de la fábrica →</p>
+            </div>
+          </section>
+        </Link>
+      )}
+
+      {/* 4. Números principales: solo locales (venta al público) */}
       <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Tarjeta className="text-center">
-          <p className="text-sm font-semibold text-slate-900">Venta de Ayer</p>
+          <p className="text-sm font-semibold text-slate-900">Venta de Ayer · locales</p>
           <p className="text-xs text-slate-500 first-letter:uppercase">{fechaAyer}</p>
           <p className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{pesos.format(t.totalAyer)}</p>
           {varAyer !== null ? (
@@ -73,7 +105,7 @@ export default async function Inicio() {
           <div className="mt-1"><Fuente real={r.real} /></div>
         </Tarjeta>
         <Tarjeta className="text-center">
-          <p className="text-sm font-semibold text-slate-900">Venta del Mes</p>
+          <p className="text-sm font-semibold text-slate-900">Venta del Mes · locales</p>
           <p className="text-xs text-slate-500">hasta ayer</p>
           <p className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{pesos.format(t.totalMes)}</p>
           <SinDefinir texto="Presupuesto sin definir" />
@@ -81,7 +113,7 @@ export default async function Inicio() {
         </Tarjeta>
         <Tarjeta className="text-center">
           <p className="text-sm font-semibold text-slate-900">Ticket Promedio</p>
-          <p className="text-xs text-slate-500">ayer, todos los locales</p>
+          <p className="text-xs text-slate-500">ayer, locales</p>
           <p className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{ticket === null ? "—" : pesos.format(ticket)}</p>
           <p className="mt-1 text-xs text-slate-500">{t.comprobantesAyer} tickets</p>
           <div className="mt-1"><Fuente real={r.real} /></div>
@@ -97,7 +129,7 @@ export default async function Inicio() {
         </Link>
       </div>
 
-      {/* 4. Ventas por unidad + Alertas */}
+      {/* 5. Ventas por local + Alertas */}
       <div className="grid gap-4 lg:grid-cols-5">
         <Tarjeta titulo="Venta de ayer por local" derecha={<Fuente real={r.real} />} className="lg:col-span-3">
           <ul className="space-y-4">
@@ -154,7 +186,7 @@ export default async function Inicio() {
       </div>
 
       <p className="mt-8 text-xs text-slate-400">
-        {r.real ? "Ventas: datos reales de Maxirest. Tesorería, fábrica y stock: todavía datos de prueba." : "Datos de prueba — todavía no son los datos reales de la empresa."}
+        {r.real ? "Ventas de locales y de la fábrica: datos reales de Maxirest. La venta de los locales es solo venta al público; la fábrica va aparte. Tesorería, producción y stock: todavía datos de prueba." : "Datos de prueba — todavía no son los datos reales de la empresa."}
       </p>
     </>
   );

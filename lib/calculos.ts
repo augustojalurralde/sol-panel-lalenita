@@ -91,7 +91,7 @@ export function estadoDatos(r: ResumenVentas) {
       : "nunca";
     ventas = {
       fuente: "Ventas (Maxirest)",
-      ultimoDato: `Carga ${hora} · ayer ${fechaCorta(r.ayer)}: ${r.unidades.length - faltan.length} de ${r.unidades.length} locales`,
+      ultimoDato: `Carga ${hora} · ayer ${fechaCorta(r.ayer)}: ${r.unidades.length - faltan.length} de ${r.unidades.length} (locales y fábrica)`,
       estado: !r.ultimaCargaOk ? "Atrasado" : faltan.length ? "Pendiente" : "OK",
       responsable: "Romina",
       escalamiento: "Augusto",
