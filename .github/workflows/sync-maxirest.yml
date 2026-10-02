@@ -1,11 +1,12 @@
 # Trae las ventas de Maxirest al SOL: totales del día + detalle (tickets, formas de cobro y artículos).
+# También trae La Rural de Palermo desde su sistema (HIOPOS).
 # Corre todos los días a las 5:00 AM (Argentina) y repite cada hora hasta las 12:00,
 # así si un local hace el cierre tarde, se completa sola.
 #
 # HISTORIAL: Actions → "Ventas Maxirest" → Run workflow → completar "Historial desde" (ej: 2025-10).
 # Carga el detalle mes por mes y local por local, desde ese mes hasta hoy.
 name: Ventas Maxirest
- 
+
 on:
   schedule:
     - cron: "0 8-15 * * *" # 08:00 a 15:00 UTC = 05:00 a 12:00 Argentina
@@ -23,7 +24,10 @@ on:
       historial_hasta:
         description: "Historial del detalle · hasta el mes (AAAA-MM). Vacío = mes actual"
         required: false
- 
+      la_rural_desde:
+        description: "La Rural (HIOPOS) · desde (AAAA-MM-DD, ej: 2026-03-01). Vacío = últimos 3 días"
+        required: false
+
 jobs:
   sincronizar:
     runs-on: ubuntu-latest
@@ -37,12 +41,19 @@ jobs:
           URL="$PANEL/api/sync/maxirest"
           if [ -n "${{ inputs.desde }}" ]; then URL="$URL?desde=${{ inputs.desde }}&hasta=${{ inputs.hasta }}"; fi
           curl -sS --fail-with-body --max-time 90 -H "Authorization: Bearer $CLAVE" "$URL"
- 
+
       - name: Traer detalle de los últimos días (tickets, cobros, artículos)
         if: ${{ !inputs.historial_desde }}
         run: |
           curl -sS --fail-with-body --max-time 90 -H "Authorization: Bearer $CLAVE" "$PANEL/api/sync/detalle"
- 
+
+      - name: Traer La Rural de Palermo (HIOPOS) de los últimos días
+        if: ${{ !inputs.historial_desde }}
+        run: |
+          URL="$PANEL/api/sync/hiopos"
+          if [ -n "${{ inputs.la_rural_desde }}" ]; then URL="$URL?desde=${{ inputs.la_rural_desde }}"; fi
+          curl -sS --fail-with-body --max-time 90 -H "Authorization: Bearer $CLAVE" "$URL"
+
       - name: Cargar historial del detalle (mes por mes, local por local)
         if: ${{ inputs.historial_desde }}
         run: |
@@ -69,4 +80,24 @@ jobs:
             MES=$(date -d "$MES +1 month" +%F)
           done
           echo "Tramos con error: $FALLAS"
+          [ $FALLAS = 0 ]
+
+      - name: Cargar historial de La Rural de Palermo (HIOPOS, mes por mes)
+        if: ${{ inputs.historial_desde }}
+        run: |
+          MES="${{ inputs.historial_desde }}-01"
+          HASTA_MES="${{ inputs.historial_hasta }}"
+          if [ -z "$HASTA_MES" ]; then HASTA_MES=$(TZ=America/Argentina/Buenos_Aires date +%Y-%m); fi
+          HOY=$(TZ=America/Argentina/Buenos_Aires date +%F)
+          FALLAS=0
+          while [[ "${MES:0:7}" < "$HASTA_MES" || "${MES:0:7}" == "$HASTA_MES" ]]; do
+            FIN=$(date -d "$MES +1 month -1 day" +%F)
+            if [[ "$FIN" > "$HOY" ]]; then FIN="$HOY"; fi
+            echo "== ${MES:0:7} · La Rural"
+            curl -sS --fail-with-body --max-time 90 -H "Authorization: Bearer $CLAVE" \
+                 "$PANEL/api/sync/hiopos?desde=$MES&hasta=$FIN" || FALLAS=$((FALLAS+1))
+            echo
+            MES=$(date -d "$MES +1 month" +%F)
+          done
+          echo "Meses con error: $FALLAS"
           [ $FALLAS = 0 ]
