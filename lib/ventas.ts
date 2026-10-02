@@ -18,11 +18,15 @@ export interface VentasUnidad {
   ultimoDia: string | null;          // último día con datos (AAAA-MM-DD)
   ultimos7: number;                  // venta de los últimos 7 días
   previos7: number;                  // los 7 días anteriores
+  semana: number;                    // semana en curso: del lunes hasta ayer
+  semanaAnt: number;                 // los MISMOS días de la semana pasada (pera con pera)
+  mesAnt: number;                    // mes anterior, del 1 hasta el mismo día
 }
 
 export interface ResumenVentas {
   real: boolean;
   ayer: string;                      // AAAA-MM-DD
+  semanaTexto: string;               // "lun a jue": qué días de la semana se comparan
   unidades: VentasUnidad[];
   sinFuente: string[];               // unidades que todavía no tienen conexión
   ultimaCarga: string | null;        // fecha/hora de la última carga automática
@@ -39,6 +43,28 @@ export function sumarDias(fecha: string, dias: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+const DIAS_CORTOS = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"];
+
+/**
+ * Períodos para comparar PERA CON PERA (los mismos días):
+ *  · semana en curso (lunes → ayer) contra los mismos días de la semana pasada
+ *  · mes en curso (1 → ayer) contra el mes anterior del 1 al mismo día (si el mes anterior es más corto, hasta su último día)
+ */
+export function periodosComparables(ayer: string) {
+  const dia = (new Date(ayer + "T12:00:00Z").getUTCDay() + 6) % 7; // 0 = lunes
+  const lunes = sumarDias(ayer, -dia);
+  const [a, m, d] = ayer.split("-").map(Number);
+  const pa = m === 1 ? a - 1 : a, pm = m === 1 ? 12 : m - 1;
+  const ultimo = new Date(Date.UTC(pa, pm, 0)).getUTCDate();
+  const mm = String(pm).padStart(2, "0");
+  return {
+    lunes,
+    semanaTexto: dia === 0 ? "lun" : `${DIAS_CORTOS[0]} a ${DIAS_CORTOS[dia]}`,
+    inicioMesAnt: `${pa}-${mm}-01`,
+    finMesAnt: `${pa}-${mm}-${String(Math.min(d, ultimo)).padStart(2, "0")}`,
+  };
+}
+
 export function totales(r: ResumenVentas) {
   const conAyer = r.unidades.filter((u) => u.ventaAyer !== null);
   const conAmbos = conAyer.filter((u) => u.ventaMismoDiaSemAnt !== null);
@@ -51,6 +77,10 @@ export function totales(r: ResumenVentas) {
     ayerComparable: conAmbos.reduce((s, u) => s + (u.ventaAyer ?? 0), 0),
     semAntComparable: conAmbos.reduce((s, u) => s + (u.ventaMismoDiaSemAnt ?? 0), 0),
     totalMes: r.unidades.reduce((s, u) => s + u.ventaMes, 0),
+    // pera con pera: semana en curso vs los mismos días de la semana pasada; mes al día vs mes anterior al mismo día
+    semana: r.unidades.reduce((s, u) => s + u.semana, 0),
+    semanaAnt: r.unidades.reduce((s, u) => s + u.semanaAnt, 0),
+    mesAnt: r.unidades.reduce((s, u) => s + u.mesAnt, 0),
     unidadesConDatos: conAyer.length,
     unidadesTotal: r.unidades.length,
   };
@@ -65,7 +95,8 @@ export async function obtenerVentas(): Promise<ResumenVentas> {
 
   const semAnt = sumarDias(ayer, -7);
   const inicioMes = ayer.slice(0, 8) + "01";
-  const desde = [inicioMes, sumarDias(ayer, -13)].sort()[0];
+  const p = periodosComparables(ayer);
+  const desde = [p.inicioMesAnt, sumarDias(ayer, -13)].sort()[0];
 
   const [unidades, filas, cargas] = await Promise.all([
     db.leer<Unidad>("unidades", "select=*&activa=eq.true&order=id"),
@@ -100,12 +131,16 @@ export async function obtenerVentas(): Promise<ResumenVentas> {
       ultimoDia: ultimos[i][0]?.fecha ?? null,
       ultimos7: suma(sumarDias(ayer, -6), ayer),
       previos7: suma(sumarDias(ayer, -13), sumarDias(ayer, -7)),
+      semana: suma(p.lunes, ayer),
+      semanaAnt: suma(sumarDias(p.lunes, -7), sumarDias(ayer, -7)),
+      mesAnt: suma(p.inicioMesAnt, p.finMesAnt),
     };
   });
 
   return {
     real: true,
     ayer,
+    semanaTexto: p.semanaTexto,
     unidades: lista,
     sinFuente: unidades.filter((u) => !fuenteDe(u)).map((u) => u.nombre),
     ultimaCarga: cargas[0]?.creado_en ?? null,
@@ -117,6 +152,7 @@ function ventasDePrueba(ayer: string): ResumenVentas {
   return {
     real: false,
     ayer,
+    semanaTexto: periodosComparables(ayer).semanaTexto,
     unidades: mockVentas.unidades.map((u) => ({
       id: u.id,
       nombre: u.nombre,
@@ -131,6 +167,9 @@ function ventasDePrueba(ayer: string): ResumenVentas {
       ultimoDia: ayer,
       ultimos7: u.ventaAyer * 7,
       previos7: u.ventaMismoDiaSemAnt * 7,
+      semana: u.ventaAyer * 4,
+      semanaAnt: u.ventaMismoDiaSemAnt * 4,
+      mesAnt: u.ventaMes * 0.95,
     })),
     sinFuente: [],
     ultimaCarga: null,

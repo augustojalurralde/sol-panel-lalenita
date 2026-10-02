@@ -106,12 +106,20 @@ export default async function Inicio() {
             <SinDefinir texto="Sin comparación" />
           )}
           <p className="mt-1 text-xs text-slate-500">{t.unidadesConDatos} de {t.unidadesTotal} locales informaron</p>
+          <p className="mt-2 border-t border-slate-100 pt-2 text-xs text-slate-600">
+            Semana ({r.semanaTexto}): <b className="text-slate-900">{pesos.format(t.semana)}</b>
+            {t.semanaAnt > 0 && <span className={`ml-1 font-medium ${colorTexto(semaforoVentas(variacion(t.semana, t.semanaAnt)))}`}>{porcentaje(Math.round(variacion(t.semana, t.semanaAnt) * 10) / 10)}</span>}
+            <span className="block text-slate-500">vs. los mismos días de la semana pasada</span>
+          </p>
           <div className="mt-1"><Fuente real={r.real} /></div>
         </Tarjeta>
         <Tarjeta className="text-center">
           <p className="text-sm font-semibold text-slate-900">Venta del Mes · locales</p>
           <p className="text-xs text-slate-500">hasta ayer</p>
           <p className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">{pesos.format(t.totalMes)}</p>
+          {t.mesAnt > 0 && (
+            <p className={`mt-1 text-sm font-medium ${colorTexto(semaforoVentas(variacion(t.totalMes, t.mesAnt)))}`}>{porcentaje(Math.round(variacion(t.totalMes, t.mesAnt) * 10) / 10)} <span className="text-xs font-normal text-slate-500">vs. mes ant. al mismo día</span></p>
+          )}
           <SinDefinir texto="Presupuesto sin definir" />
           <div className="mt-1"><Fuente real={r.real} /></div>
         </Tarjeta>

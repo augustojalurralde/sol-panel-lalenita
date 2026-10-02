@@ -6,16 +6,12 @@ import { semaforoVentas } from "@/lib/config";
 import { comparativoLocales } from "@/lib/calculos";
 import { pesos, numero, porcentaje, variacion } from "@/lib/formato";
 import { Encabezado, Fuente, Tarjeta, colorTexto, colorFondo } from "@/components/UI";
-import { IconoPersona, IconoBaja, IconoSube, IconoEstable } from "@/components/Iconos";
+import { IconoPersona } from "@/components/Iconos";
 
-function TendenciaCelda({ pct }: { pct: number | null }) {
-  if (pct === null) return <span className="text-slate-400">—</span>;
-  const Icono = pct > 0 ? IconoSube : pct < 0 ? IconoBaja : IconoEstable;
-  return (
-    <span className="flex items-center gap-1.5 text-slate-700">
-      <Icono className="h-4 w-4" />{porcentaje(pct)}
-    </span>
-  );
+/** Variación chica debajo de un monto (rojo/amarillo/verde según el semáforo de ventas) */
+function Pct({ v, fuerte = false }: { v: number | null; fuerte?: boolean }) {
+  if (v === null) return <span className="block text-xs font-normal text-slate-400">sin comparación</span>;
+  return <span className={`block text-xs ${fuerte ? "font-semibold" : "font-medium"} ${colorTexto(semaforoVentas(v))}`}>{porcentaje(Math.round(v * 10) / 10)}</span>;
 }
 
 const th = "px-3 py-3 text-xs font-semibold text-slate-700 align-bottom";
@@ -117,12 +113,11 @@ export default async function ComparativoLocales({ searchParams }: { searchParam
             <tr>
               <th className={`${th} text-center`}>Prioridad</th>
               <th className={`${th} text-left`}>Local</th>
-              <th className={`${th} text-right`}>Venta Ayer</th>
-              <th className={`${th} text-right`}>Venta Mes</th>
-              <th className={`${th} text-center`}>Variación<span className="block font-normal text-slate-500">vs mismo día sem. ant.</span></th>
+              <th className={`${th} text-right`}>Venta Ayer<span className="block font-normal text-slate-500">vs mismo día sem. ant.</span></th>
+              <th className={`${th} text-right`}>Semana ({r.semanaTexto})<span className="block font-normal text-slate-500">vs mismos días sem. ant.</span></th>
+              <th className={`${th} text-right`}>Mes al día {Number(r.ayer.slice(8))}<span className="block font-normal text-slate-500">vs mes ant. al mismo día</span></th>
               <th className={`${th} text-right`}>Ticket Promedio</th>
               <th className={`${th} text-center`}>Área Principal</th>
-              <th className={`${th} text-left`}>Tendencia<span className="block font-normal text-slate-500">7 días vs 7 anteriores</span></th>
               <th className={`${th} text-left`}>Responsable</th>
               <th className={`${th} text-left`}>Última Novedad</th>
               <th className={`${th} text-left`}>Recomendación</th>
@@ -145,12 +140,18 @@ export default async function ComparativoLocales({ searchParams }: { searchParam
                 </td>
                 <td className="whitespace-nowrap px-3 py-3.5 text-right text-slate-900">
                   {f.ventaAyer === null ? <span className="text-xs text-slate-400">Sin datos</span> : pesos.format(f.ventaAyer)}
+                  <Pct v={f.variacion} />
                 </td>
-                <td className="whitespace-nowrap px-3 py-3.5 text-right text-slate-700">{pesos.format(f.ventaMes)}</td>
-                <td className={`px-3 py-3.5 text-center font-medium ${colorTexto(f.semaforo)}`}>{f.variacion === null ? "—" : porcentaje(f.variacion)}</td>
+                <td className="whitespace-nowrap px-3 py-3.5 text-right font-semibold text-slate-900">
+                  {f.semana ? pesos.format(f.semana) : <span className="text-xs font-normal text-slate-400">Sin venta</span>}
+                  <Pct v={f.varSemana} fuerte />
+                </td>
+                <td className="whitespace-nowrap px-3 py-3.5 text-right text-slate-700">
+                  {pesos.format(f.ventaMes)}
+                  <Pct v={f.varMes} />
+                </td>
                 <td className="whitespace-nowrap px-3 py-3.5 text-right text-slate-700">{f.ticketPromedio === null ? "—" : pesos.format(f.ticketPromedio)}</td>
                 <td className="px-3 py-3.5 text-center text-slate-700">{f.area}</td>
-                <td className="px-3 py-3.5 text-xs font-medium"><TendenciaCelda pct={f.tendencia} /></td>
                 <td className="px-3 py-3.5 text-slate-700">
                   <span className="flex items-center gap-2"><IconoPersona className="h-4 w-4 text-slate-500" />{f.responsable}</span>
                 </td>
@@ -165,7 +166,8 @@ export default async function ComparativoLocales({ searchParams }: { searchParam
       </div>
       <p className="mt-2 text-xs text-slate-400 lg:hidden">Deslizá la tabla hacia los costados para ver todas las columnas.</p>
       <p className="mt-2 text-xs text-slate-500">
-        Semáforo de ventas: verde hasta −5% · amarillo entre −5% y −10% · rojo peor que −10% · gris sin datos para comparar.
+        Siempre se comparan los mismos días (pera con pera). El semáforo y las alertas usan la semana en curso ({r.semanaTexto}) contra los mismos días de la semana pasada:
+        verde hasta −5% · amarillo entre −5% y −10% · rojo peor que −10% · gris sin datos para comparar.
         {r.sinFuente.length > 0 && ` Todavía sin conexión: ${r.sinFuente.join(", ")}.`}
         {" "}La fábrica no se compara con los locales: se ve en Estado de la Fábrica. Tocá un local para ver su detalle (turnos, cobros, artículos y tickets).
       </p>
@@ -177,20 +179,18 @@ export default async function ComparativoLocales({ searchParams }: { searchParam
               <thead className="border-b border-slate-200">
                 <tr>
                   <th className={`${th} text-left`}>Local</th>
-                  <th className={`${th} text-right`}>Venta Ayer</th>
-                  <th className={`${th} text-center`}>Variación<span className="block font-normal text-slate-500">vs mismo día sem. ant.</span></th>
-                  <th className={`${th} text-right`}>Venta Mes</th>
-                  <th className={`${th} text-left`}>Tendencia<span className="block font-normal text-slate-500">7 días vs 7 anteriores</span></th>
+                  <th className={`${th} text-right`}>Venta Ayer<span className="block font-normal text-slate-500">vs mismo día sem. ant.</span></th>
+                  <th className={`${th} text-right`}>Semana ({r.semanaTexto})<span className="block font-normal text-slate-500">vs mismos días sem. ant.</span></th>
+                  <th className={`${th} text-right`}>Mes al día {Number(r.ayer.slice(8))}<span className="block font-normal text-slate-500">vs mes ant. al mismo día</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {aparte.map((f) => (
                   <tr key={f.id}>
                     <td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-900">{f.nombre}</td>
-                    <td className="whitespace-nowrap px-3 py-3 text-right text-slate-900">{f.ventaAyer === null ? <span className="text-xs text-slate-400">Sin venta cargada</span> : pesos.format(f.ventaAyer)}</td>
-                    <td className={`px-3 py-3 text-center font-medium ${colorTexto(f.semaforo)}`}>{f.variacion === null ? "—" : porcentaje(f.variacion)}</td>
-                    <td className="whitespace-nowrap px-3 py-3 text-right text-slate-700">{pesos.format(f.ventaMes)}</td>
-                    <td className="px-3 py-3 text-xs font-medium"><TendenciaCelda pct={f.tendencia} /></td>
+                    <td className="whitespace-nowrap px-3 py-3 text-right text-slate-900">{f.ventaAyer === null ? <span className="text-xs text-slate-400">Sin venta cargada</span> : pesos.format(f.ventaAyer)}<Pct v={f.variacion} /></td>
+                    <td className="whitespace-nowrap px-3 py-3 text-right font-semibold text-slate-900">{f.semana ? pesos.format(f.semana) : <span className="text-xs font-normal text-slate-400">Sin venta</span>}<Pct v={f.varSemana} fuerte /></td>
+                    <td className="whitespace-nowrap px-3 py-3 text-right text-slate-700">{pesos.format(f.ventaMes)}<Pct v={f.varMes} /></td>
                   </tr>
                 ))}
               </tbody>

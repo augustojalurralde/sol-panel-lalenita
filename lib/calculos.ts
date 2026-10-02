@@ -16,12 +16,16 @@ export function comparativoLocales(r: ResumenVentas) {
       const varPct = tieneAyer && u.ventaMismoDiaSemAnt ? variacion(u.ventaAyer!, u.ventaMismoDiaSemAnt) : null;
       const ticket = tieneAyer && u.comprobantesAyer ? u.ventaAyer! / u.comprobantesAyer : null;
       const ticketSemAnt = u.ventaMismoDiaSemAnt && u.comprobantesSemAnt ? u.ventaMismoDiaSemAnt / u.comprobantesSemAnt : null;
-      const semaforo: Semaforo = varPct === null ? "gris" : semaforoVentas(varPct);
+      // El semáforo (y las alertas) se basan en la SEMANA EN CURSO contra los mismos días de la semana pasada:
+      // un solo día salta mucho (lluvia, feriado, cierre tarde); la semana es más estable.
+      const varSemana = u.semanaAnt > 0 && u.semana > 0 ? variacion(u.semana, u.semanaAnt) : null;
+      const varMes = u.mesAnt > 0 ? variacion(u.ventaMes, u.mesAnt) : null;
+      const semaforo: Semaforo = varSemana === null ? "gris" : semaforoVentas(varSemana);
       const tendencia = u.previos7 > 0 ? variacion(u.ultimos7, u.previos7) : null;
 
       let recomendacion = "Sin acción necesaria";
       if (!tieneAyer) recomendacion = u.fuente === "planilla" ? "Sin venta cargada en la planilla (¿día cerrado?)" : u.fuente === "hiopos" ? "Sin venta ayer en HIOPOS (¿feria cerrada?)" : "Verificar cierre y sincronización de Maxirest";
-      else if (varPct === null) recomendacion = "Sin comparación (no hay datos de la semana anterior)";
+      else if (varSemana === null) recomendacion = "Sin comparación (no hay datos de la semana anterior)";
       else if (semaforo !== "verde") {
         if (ticket !== null && ticketSemAnt !== null && ticket < ticketSemAnt) recomendacion = "Revisar ticket promedio";
         else recomendacion = "Revisar cantidad de tickets";
@@ -36,6 +40,9 @@ export function comparativoLocales(r: ResumenVentas) {
         ventaAyer: u.ventaAyer,
         ventaMes: u.ventaMes,
         variacion: varPct,
+        semana: u.semana,
+        varSemana,
+        varMes,
         ticketPromedio: ticket,
         area: "Ventas",
         tendencia,
@@ -45,7 +52,7 @@ export function comparativoLocales(r: ResumenVentas) {
         semaforo,
       };
     })
-    .sort((a, b) => gravedad[a.semaforo] - gravedad[b.semaforo] || (a.variacion ?? 0) - (b.variacion ?? 0));
+    .sort((a, b) => gravedad[a.semaforo] - gravedad[b.semaforo] || (a.varSemana ?? 0) - (b.varSemana ?? 0));
 }
 
 /* ───────── Fábrica (datos de prueba) ───────── */
@@ -114,7 +121,7 @@ export function alertas(r: ResumenVentas): Alerta[] {
     if (l.ventaAyer === null && l.fuente === "maxirest")
       lista.push({ texto: `${l.nombre}: sin datos de ventas de ayer (falta cierre o sincronización)`, responsable: l.responsable, href: "/locales", color: "gris", prueba: !r.real });
     else if (l.semaforo === "rojo")
-      lista.push({ texto: `${l.nombre}: venta de ayer ${decimal(l.variacion!)}% vs. semana anterior`, responsable: l.responsable, href: "/locales", color: "rojo", prueba: !r.real });
+      lista.push({ texto: `${l.nombre}: semana (${r.semanaTexto}) ${decimal(l.varSemana!)}% vs. los mismos días de la semana pasada`, responsable: l.responsable, href: "/locales", color: "rojo", prueba: !r.real });
   }
   for (const i of insumosCalculados()) {
     if (i.estadoMostrado === "rojo")
