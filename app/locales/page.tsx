@@ -95,7 +95,9 @@ async function PorTurno({ fecha }: { fecha: string }) {
 export default async function ComparativoLocales({ searchParams }: { searchParams: Promise<{ fecha?: string }> }) {
   const sp = await searchParams;
   const fecha = sp.fecha && /^\d{4}-\d{2}-\d{2}$/.test(sp.fecha) && sp.fecha <= ayer() ? sp.fecha : ayer();
-  const r = await obtenerVentas();
+  const r = await obtenerVentas(fecha);
+  const esAyer = fecha === ayer();
+  const tituloDia = esAyer ? "Venta Ayer" : `Venta ${fechaCorta(fecha)}`;
   const todas = comparativoLocales(r).filter((f) => f.tipo === "local");
   const filas = todas.filter((f) => f.grupo !== "Molinos y Tocka");
   const aparte = todas.filter((f) => f.grupo === "Molinos y Tocka");
@@ -105,7 +107,14 @@ export default async function ComparativoLocales({ searchParams }: { searchParam
       <Encabezado titulo="Comparativo de Locales" pregunta="¿Qué local necesita atención y por qué?" extra={<>
         <Link href="/locales/estadisticas" className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700">Estadísticas</Link>
         <Fuente real={r.real} />
-      </>} />
+      </>} fecha={
+        <form action="/locales" className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700">
+          <span className="text-slate-500">Día</span>
+          <input key={fecha} type="date" name="fecha" defaultValue={fecha} max={ayer()} className="rounded border border-slate-200 px-2 py-1 text-slate-800" />
+          <button className="rounded bg-slate-900 px-3 py-1 text-white hover:bg-slate-700">Ver</button>
+          {!esAyer && <Link href="/locales" className="text-xs text-blue-600 hover:underline">volver a ayer</Link>}
+        </form>
+      } />
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[1100px] text-sm">
@@ -113,7 +122,7 @@ export default async function ComparativoLocales({ searchParams }: { searchParam
             <tr>
               <th className={`${th} text-center`}>Prioridad</th>
               <th className={`${th} text-left`}>Local</th>
-              <th className={`${th} text-right`}>Venta Ayer<span className="block font-normal text-slate-500">vs mismo día sem. ant.</span></th>
+              <th className={`${th} text-right`}>{tituloDia}<span className="block font-normal text-slate-500">vs mismo día sem. ant.</span></th>
               <th className={`${th} text-right`}>Semana ({r.semanaTexto})<span className="block font-normal text-slate-500">vs mismos días sem. ant.</span></th>
               <th className={`${th} text-right`}>Mes al día {Number(r.ayer.slice(8))}<span className="block font-normal text-slate-500">vs mes ant. al mismo día</span></th>
               <th className={`${th} text-right`}>Ticket Promedio</th>
@@ -179,7 +188,7 @@ export default async function ComparativoLocales({ searchParams }: { searchParam
               <thead className="border-b border-slate-200">
                 <tr>
                   <th className={`${th} text-left`}>Local</th>
-                  <th className={`${th} text-right`}>Venta Ayer<span className="block font-normal text-slate-500">vs mismo día sem. ant.</span></th>
+                  <th className={`${th} text-right`}>{tituloDia}<span className="block font-normal text-slate-500">vs mismo día sem. ant.</span></th>
                   <th className={`${th} text-right`}>Semana ({r.semanaTexto})<span className="block font-normal text-slate-500">vs mismos días sem. ant.</span></th>
                   <th className={`${th} text-right`}>Mes al día {Number(r.ayer.slice(8))}<span className="block font-normal text-slate-500">vs mes ant. al mismo día</span></th>
                 </tr>

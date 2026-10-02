@@ -37,7 +37,10 @@ export function Leyenda({ items }: { items: { nombre: string; color: string }[] 
 
 /** Barras apiladas por mes. Al pasar el mouse por una barra muestra el detalle. */
 export function BarrasApiladas({ datos, alto = 260 }: { datos: Apilado; alto?: number }) {
-  const { categorias, series } = datos;
+  const { categorias } = datos;
+  // Orden de la pila: abajo el que menos vendió en el período, arriba el que más (la leyenda y el cartelito siguen el mismo orden)
+  const total = (s: { valores: number[] }) => s.valores.reduce((x, v) => x + v, 0);
+  const series = [...datos.series].sort((a, b) => total(a) - total(b));
   if (!series.length) return <p className="py-8 text-center text-sm text-slate-500">Sin datos todavía.</p>;
   const W = 820, H = alto, L = 62, R = 10, T = 26, B = 26;
   const totales = categorias.map((_, i) => series.reduce((s, x) => s + x.valores[i], 0));
@@ -51,7 +54,7 @@ export function BarrasApiladas({ datos, alto = 260 }: { datos: Apilado; alto?: n
 
   return (
     <>
-      {series.length > 1 && <Leyenda items={series} />}
+      {series.length > 1 && <Leyenda items={[...series].reverse()} />}
       <div className="overflow-x-auto">
       <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full min-w-[620px]" role="img" aria-label="Gráfico de barras por mes">
         {marcas.map((m) => (

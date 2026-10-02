@@ -89,8 +89,10 @@ export function totales(r: ResumenVentas) {
 interface Unidad { id: number; nombre: string; maxirest_codigo: string | null; tipo?: string | null; grupo?: string | null; fuente?: string | null }
 interface Fila { unidad_id: number; fecha: string; total: number; cantidad_ventas: number }
 
-export async function obtenerVentas(): Promise<ResumenVentas> {
-  const ayer = sumarDias(hoyAR(), -1);
+/** Ventas para las pantallas. "fecha" = el día que se quiere mirar (por defecto, ayer). */
+export async function obtenerVentas(fecha?: string): Promise<ResumenVentas> {
+  const ayerReal = sumarDias(hoyAR(), -1);
+  const ayer = fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha) && fecha <= ayerReal ? fecha : ayerReal;
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return ventasDePrueba(ayer);
 
   const semAnt = sumarDias(ayer, -7);

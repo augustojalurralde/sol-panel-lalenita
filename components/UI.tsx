@@ -4,7 +4,7 @@ import { fechaDeHoy } from "@/lib/formato";
 import { IconoCalendario } from "./Iconos";
 import type { Semaforo } from "@/lib/config";
 
-export function Encabezado({ titulo, pregunta, extra }: { titulo: string; pregunta: string; extra?: ReactNode }) {
+export function Encabezado({ titulo, pregunta, extra, fecha }: { titulo: string; pregunta: string; extra?: ReactNode; fecha?: ReactNode }) {
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -13,10 +13,12 @@ export function Encabezado({ titulo, pregunta, extra }: { titulo: string; pregun
       </div>
       <div className="flex flex-wrap items-center gap-3">
         {extra}
-        <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700">
-          {fechaDeHoy()}
-          <IconoCalendario className="h-4 w-4 text-slate-500" />
-        </div>
+        {fecha ?? (
+          <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700">
+            {fechaDeHoy()}
+            <IconoCalendario className="h-4 w-4 text-slate-500" />
+          </div>
+        )}
       </div>
     </div>
   );
