@@ -6,7 +6,7 @@
 // Abajo: operación de la fábrica (todavía datos de prueba).
 import type { ReactNode } from "react";
 import {
-  obtenerUnidades, obtenerTurnos, obtenerDetalle, obtenerEquivalencias, leerRango, textoRango, hayBase,
+  obtenerUnidades, reglaTurnos, aplicarRegla, obtenerDetalle, obtenerEquivalencias, leerRango, textoRango, hayBase,
   resumenPorTurno, cobrosResumen, articulosPorRubro, conceptoFabrica, obtenerLocalesPropios, CONCEPTOS_FABRICA,
   type Ticket,
 } from "@/lib/detalle";
@@ -34,9 +34,11 @@ function Kpi({ titulo, valor, pie, color = "text-slate-900", children }: {
 async function VentasFabrica({ desde, hasta }: { desde: string; hasta: string }) {
   const fabrica = (await obtenerUnidades()).find((u) => u.tipo === "fabrica");
   if (!fabrica) return null;
-  const [turnos, equivalencias, propios, d] = await Promise.all([
-    obtenerTurnos("fabrica"), obtenerEquivalencias("fabrica"), obtenerLocalesPropios(), obtenerDetalle([fabrica.id], desde, hasta),
+  const regla = reglaTurnos(fabrica);
+  const [equivalencias, propios, detalle] = await Promise.all([
+    obtenerEquivalencias("fabrica"), obtenerLocalesPropios(), obtenerDetalle([fabrica.id], desde, hasta),
   ]);
+  const d = aplicarRegla(detalle, regla);
   const concepto = (t: Ticket) => conceptoFabrica(t, propios);
   const total = d.tickets.reduce((s, t) => s + t.total, 0);
   const porConcepto = new Map<string, { tickets: number; venta: number }>(CONCEPTOS_FABRICA.map((c) => [c, { tickets: 0, venta: 0 }]));
@@ -82,16 +84,16 @@ async function VentasFabrica({ desde, hasta }: { desde: string; hasta: string })
           <p className="mb-2 text-xs text-slate-500">
             &quot;Ventas a locales propios&quot; = ventas cuyo cliente en Maxirest es un local propio ({[...propios].join(", ") || "ninguno cargado"}). No se suman a Mayorista. La lista se edita en Supabase, tabla clientes_locales_propios.
           </p>
-          <NotaTurnos turnos={turnos} />
+          <NotaTurnos regla={regla} />
           <div className="grid gap-4 2xl:grid-cols-5">
-            <div className="2xl:col-span-3"><TablaTurnos filas={resumenPorTurno(d.tickets, turnos, concepto)} /></div>
+            <div className="2xl:col-span-3"><TablaTurnos filas={resumenPorTurno(d.tickets, regla, concepto)} /></div>
             <div className="2xl:col-span-2"><TablaCobros {...cobrosResumen(d.cobros)} /></div>
           </div>
           <div className="mt-4"><TablaArticulos grupos={arts.grupos} turnos={arts.turnos} conEmpanadas /></div>
           <p className="mt-2 text-xs text-slate-500">
             Empanadas equivalentes según la tabla de equivalencias (editable en Supabase): tabla Tucumán 42, tabla sfijas 36, caja *120, caja 90 g 175, caja 80 g 160, docena 12, paquete x6, suelta 1. Pizzas, wraps y tartas no cuentan.
           </p>
-          <div className="mt-4"><TablaTickets tickets={d.tickets} turnos={turnos} concepto={concepto} /></div>
+          <div className="mt-4"><TablaTickets tickets={d.tickets} regla={regla} concepto={concepto} /></div>
         </>
       )}
     </section>

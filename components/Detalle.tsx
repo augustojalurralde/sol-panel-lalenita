@@ -2,8 +2,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
-  atajos, fechaCorta, nombreConcepto, turnoPorHora, TURNO_MAXIREST,
-  type FilaTurno, type FilaCobro, type GrupoRubro, type Ticket, type TurnoConfig,
+  atajos, fechaCorta, nombreConcepto, TURNO_MAXIREST,
+  type FilaTurno, type FilaCobro, type GrupoRubro, type Ticket, type ReglaTurnos,
 } from "@/lib/detalle";
 import { pesos, numero } from "@/lib/formato";
 import { Tarjeta } from "./UI";
@@ -42,23 +42,21 @@ export function SelectorRango({ base, desde, hasta, extra }: { base: string; des
 }
 
 /** Aclaración sobre de dónde sale el turno en cada cuadro */
-export function NotaTurnos({ turnos }: { turnos: TurnoConfig[] }) {
-  const texto = turnos.map((t) => `${t.nombre} ${t.desde.slice(0, 5)} a ${t.hasta.slice(0, 5)}`).join(" · ");
+export function NotaTurnos({ regla }: { regla: ReglaTurnos }) {
   return (
     <p className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">
-      <b>Cómo se arman los turnos:</b> el resumen y los tickets usan la <b>hora de entrada</b> de cada ticket ({texto}; lo demás es &quot;Fuera de turno&quot;).
-      Las formas de cobro y los artículos usan el <b>turno de Maxirest</b> (&quot;Mañana&quot; se muestra como Mediodía). Por eso pueden diferir un poco.
+      <b>Turnos:</b> {regla.nota}
     </p>
   );
 }
 
-/** Resumen por turno (tickets por hora de entrada), con el detalle por concepto */
+/** Resumen por turno, con el detalle por concepto */
 export function TablaTurnos({ filas }: { filas: FilaTurno[] }) {
   const total = filas.reduce((s, f) => s + f.venta, 0);
   const tickets = filas.reduce((s, f) => s + f.tickets, 0);
   const conceptos = [...new Set(filas.flatMap((f) => Object.keys(f.porConcepto)))].sort();
   return (
-    <Tarjeta titulo="Resumen por turno" derecha={<span className="text-xs text-slate-500">por hora de entrada</span>}>
+    <Tarjeta titulo="Resumen por turno">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[520px] text-sm">
           <thead className="border-b border-slate-200">
@@ -97,10 +95,10 @@ export function TablaTurnos({ filas }: { filas: FilaTurno[] }) {
   );
 }
 
-/** Formas de cobro (turno de Maxirest) */
+/** Formas de cobro (por turno, si la unidad tiene más de uno) */
 export function TablaCobros({ filas, turnos, total }: { filas: FilaCobro[]; turnos: number[]; total: number }) {
   return (
-    <Tarjeta titulo="Formas de cobro" derecha={<span className="text-xs text-slate-500">turno de Maxirest</span>}>
+    <Tarjeta titulo="Formas de cobro">
       {!filas.length ? <p className="py-4 text-center text-sm text-slate-500">Sin datos.</p> : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[420px] text-sm">
@@ -129,11 +127,11 @@ export function TablaCobros({ filas, turnos, total }: { filas: FilaCobro[]; turn
   );
 }
 
-/** Artículos por rubro (turno de Maxirest). Con "conEmpanadas" agrega la columna de empanadas equivalentes. */
+/** Artículos por rubro (por turno, si la unidad tiene más de uno). Con "conEmpanadas" agrega la columna de empanadas equivalentes. */
 export function TablaArticulos({ grupos, turnos, conEmpanadas = false }: { grupos: GrupoRubro[]; turnos: number[]; conEmpanadas?: boolean }) {
   const verTurnos = turnos.length > 1 ? turnos : [];
   return (
-    <Tarjeta titulo="Artículos vendidos" derecha={<span className="text-xs text-slate-500">turno de Maxirest</span>}>
+    <Tarjeta titulo="Artículos vendidos">
       {!grupos.length ? <p className="py-4 text-center text-sm text-slate-500">Sin datos.</p> : (
         <div className="max-h-[560px] overflow-auto">
           <table className="w-full min-w-[560px] text-sm">
@@ -174,8 +172,8 @@ export function TablaArticulos({ grupos, turnos, conEmpanadas = false }: { grupo
 }
 
 /** Lista de tickets (los más recientes primero) */
-export function TablaTickets({ tickets, turnos, limite = 300, concepto = (t) => nombreConcepto(t.concepto) }: {
-  tickets: Ticket[]; turnos: TurnoConfig[]; limite?: number; concepto?: (t: Ticket) => string;
+export function TablaTickets({ tickets, regla, limite = 300, concepto = (t) => nombreConcepto(t.concepto) }: {
+  tickets: Ticket[]; regla: ReglaTurnos; limite?: number; concepto?: (t: Ticket) => string;
 }) {
   const lista = [...tickets].sort((a, b) => (b.fecha + (b.hora_entrada ?? "")).localeCompare(a.fecha + (a.hora_entrada ?? ""))).slice(0, limite);
   return (
@@ -202,7 +200,7 @@ export function TablaTickets({ tickets, turnos, limite = 300, concepto = (t) => 
                   <td className="whitespace-nowrap px-3 py-1.5 text-slate-600">{fechaCorta(t.fecha)}</td>
                   <td className="px-3 py-1.5 text-slate-900">{t.hora_entrada?.slice(0, 5) ?? "—"}</td>
                   <td className="px-3 py-1.5 text-slate-500">{t.hora_salida?.slice(0, 5) ?? "—"}</td>
-                  <td className="whitespace-nowrap px-3 py-1.5 text-slate-600">{turnoPorHora(t.hora_entrada, turnos)}</td>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-slate-600">{regla.deTicket(t)}</td>
                   <td className="whitespace-nowrap px-3 py-1.5 text-slate-600">{concepto(t)}</td>
                   <td className="px-3 py-1.5 text-slate-600">
                     {t.formas_pago ?? "—"}

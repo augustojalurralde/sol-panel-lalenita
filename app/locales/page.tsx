@@ -1,7 +1,7 @@
 // app/locales/page.tsx — COMPARATIVO DE LOCALES (solo locales: la fábrica va aparte)
 import Link from "next/link";
 import { obtenerVentas, sumarDias } from "@/lib/ventas";
-import { comparativoPorTurno, ayer, fechaCorta, FUERA_DE_TURNO } from "@/lib/detalle";
+import { comparativoPorTurno, ayer, fechaCorta } from "@/lib/detalle";
 import { semaforoVentas } from "@/lib/config";
 import { comparativoLocales } from "@/lib/calculos";
 import { pesos, numero, porcentaje, variacion } from "@/lib/formato";
@@ -72,9 +72,8 @@ async function PorTurno({ fecha }: { fecha: string }) {
                   </td>
                   {c.turnos.map((t) => {
                     const x = f.porTurno[t];
-                    const fuera = t === FUERA_DE_TURNO;
                     return [
-                      <td key={t + "v"} className={`whitespace-nowrap border-l border-slate-100 px-3 py-2.5 text-right ${fuera ? "text-slate-500" : "text-slate-900"}`}>{x.tickets ? pesos.format(x.venta) : <span className="text-slate-300">—</span>}</td>,
+                      <td key={t + "v"} className={`whitespace-nowrap border-l border-slate-100 px-3 py-2.5 text-right text-slate-900`}>{x.tickets ? pesos.format(x.venta) : <span className="text-slate-300">—</span>}</td>,
                       <td key={t + "x"} className="px-3 py-2.5 text-right"><VarTurno actual={x.venta} anterior={x.ventaAnt} /></td>,
                       <td key={t + "t"} className="whitespace-nowrap px-3 py-2.5 text-right text-xs text-slate-600">{x.tickets ? `${numero.format(x.tickets)} · ${pesos.format(x.venta / x.tickets)}` : ""}</td>,
                     ];
@@ -91,7 +90,7 @@ async function PorTurno({ fecha }: { fecha: string }) {
         </div>
       )}
       <p className="mt-3 text-xs text-slate-500">
-        Turno según la hora de entrada de cada ticket (Mediodía 10:30 a 15:30 · Noche 19:30 a 06:00; la madrugada cuenta en la noche del día anterior). Solo locales: la fábrica se ve en Estado de la Fábrica. Tocá un local para ver su detalle.
+        Turno según Maxirest en cada venta (Mediodía o Noche; la madrugada cuenta en la noche del día anterior). La Rural tiene un solo turno: Día completo. Solo locales: la fábrica se ve en Estado de la Fábrica. Tocá un local para ver su detalle.
       </p>
     </Tarjeta>
   );

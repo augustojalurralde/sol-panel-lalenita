@@ -45,7 +45,12 @@ Ventas → Romina · Producción → Pablo planifica, Iván registra · Check-in
   - Comparativo de Locales: solo locales (la fábrica nunca se compara) + cuadro "Por turno" (día vs mismo día semana anterior). Tocar un local abre su detalle (/locales/[id]).
   - Detalle de local, con fecha o rango: resumen por turno, formas de cobro, artículos y tickets.
   - Estado de la Fábrica: ventas reales separadas en Mayorista / Ventas a locales propios / De fábrica / V. menor (locales propios = tabla editable clientes_locales_propios; no se suman a Mayorista), empanadas equivalentes (tabla equivalencias_empanadas), cobros, artículos y tickets.
-  - Turnos de tickets por HORA DE ENTRADA (tabla turnos_config): Mediodía 10:30-15:30, Noche 19:30-06:00, Fábrica 06:00-16:00; el resto "Fuera de turno". Artículos y cobros usan el turno de Maxirest (1 = Mediodía, 2 = Noche).
+  - Turnos (definidos por Augusto el 02/10/2026; NO existe "fuera de turno"):
+    - Barrio Norte, Barrio Sur, Yerba Buena y Recoleta: Mediodía o Noche, según lo marca Maxirest en cada venta (1 = Mediodía, 2 = Noche). Recoleta trabaja 11-16 y 18-24.
+    - La Rural de Palermo (HIOPOS): un solo turno, "Día completo" (aprox. 9 a 21/22 h).
+    - Fábrica: un solo turno.
+    - Molinos (planilla): Mañana y Tarde. Tocka (planilla): solo Noche.
+    - La tabla turnos_config ya no se usa.
   - Pago dividido: un ticket por comprobante, total contado una sola vez.
 - Mercado Pago cuenta como dinero disponible en el MVP.
 

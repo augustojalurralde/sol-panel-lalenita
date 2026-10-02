@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
-  obtenerUnidades, obtenerTurnos, obtenerDetalle, leerRango, textoRango, hayBase,
+  obtenerUnidades, reglaTurnos, aplicarRegla, obtenerDetalle, leerRango, textoRango, hayBase,
   resumenPorTurno, cobrosResumen, articulosPorRubro,
 } from "@/lib/detalle";
 import { Encabezado, Fuente } from "@/components/UI";
@@ -22,8 +22,9 @@ export default async function DetalleLocal({ params, searchParams }: {
   if (unidad.tipo === "fabrica") return redirect("/fabrica"); // la fábrica se ve aparte
 
   const { desde, hasta } = leerRango(sp);
-  const [turnos, d] = await Promise.all([obtenerTurnos("local"), obtenerDetalle([unidad.id], desde, hasta)]);
-  const porTurno = resumenPorTurno(d.tickets, turnos);
+  const regla = reglaTurnos(unidad);
+  const d = aplicarRegla(await obtenerDetalle([unidad.id], desde, hasta), regla);
+  const porTurno = resumenPorTurno(d.tickets, regla);
   const cobros = cobrosResumen(d.cobros);
   const arts = articulosPorRubro(d.articulos);
   const locales = unidades.filter((u) => u.tipo === "local");
@@ -53,13 +54,13 @@ export default async function DetalleLocal({ params, searchParams }: {
         </p>
       ) : (
         <>
-          <NotaTurnos turnos={turnos} />
+          <NotaTurnos regla={regla} />
           <div className="grid gap-4 2xl:grid-cols-5">
             <div className="2xl:col-span-3"><TablaTurnos filas={porTurno} /></div>
             <div className="2xl:col-span-2"><TablaCobros {...cobros} /></div>
           </div>
           <div className="mt-4"><TablaArticulos grupos={arts.grupos} turnos={arts.turnos} /></div>
-          <div className="mt-4"><TablaTickets tickets={d.tickets} turnos={turnos} /></div>
+          <div className="mt-4"><TablaTickets tickets={d.tickets} regla={regla} /></div>
         </>
       )}
     </>

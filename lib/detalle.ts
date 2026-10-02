@@ -1,16 +1,19 @@
 // lib/detalle.ts — Detalle de ventas (tickets, formas de cobro, artículos) para las pantallas.
 // Reglas (plan aprobado):
-//  · Tickets: el turno sale de la HORA DE ENTRADA, según la tabla turnos_config (editable en Supabase).
-//    Lo que no cae en ningún turno es "Fuera de turno". La madrugada ya viene anotada en el día anterior.
-//  · Formas de cobro y artículos: usan el turno de MAXIREST (1 = Mediodía, 2 = Noche).
+//  · Turnos (definidos por Augusto, 02/10/2026) — no existe "fuera de turno":
+//      - Locales con Maxirest (Barrio Norte, Barrio Sur, Yerba Buena, Recoleta): Mediodía o Noche,
+//        tal como lo marca Maxirest en cada venta (1 = Mediodía, 2 = Noche).
+//      - La Rural de Palermo (HIOPOS): un solo turno, "Día completo".
+//      - Fábrica: un solo turno, "Turno único".
+//      - (Molinos: Mañana y Tarde · Tocka: solo Noche — vienen de la planilla.)
+//  · La madrugada ya viene anotada en el día anterior.
 //  · La fábrica va aparte y nunca se compara con los locales.
 import { db } from "./supabase";
 import { hoyAR, sumarDias } from "./ventas";
 
 export type TipoUnidad = "local" | "fabrica";
 
-export interface UnidadDetalle { id: number; nombre: string; tipo: TipoUnidad }
-export interface TurnoConfig { tipo_unidad: TipoUnidad; nombre: string; desde: string; hasta: string; orden: number }
+export interface UnidadDetalle { id: number; nombre: string; tipo: TipoUnidad; fuente?: string | null }
 export interface Equivalencia { tipo_unidad: TipoUnidad; codigo: number; empanadas: number }
 
 export interface Ticket {
@@ -21,16 +24,9 @@ export interface Ticket {
 export interface Cobro { unidad_id: number; fecha: string; turno: number; forma: string; cantidad: number; total: number }
 export interface ArticuloFila { unidad_id: number; fecha: string; turno: number; codigo: number; nombre: string; rubro: string; unidades: number; venta: number }
 
-export const FUERA_DE_TURNO = "Fuera de turno";
 /** Turno de Maxirest → nombre en el panel (Maxirest al 1 lo llama "Mañana") */
 export const TURNO_MAXIREST: Record<number, string> = { 1: "Mediodía", 2: "Noche" };
 
-/** Si no se pudo leer la tabla de turnos, se usan estos (los mismos que carga la migración) */
-const TURNOS_POR_DEFECTO: TurnoConfig[] = [
-  { tipo_unidad: "local", nombre: "Mediodía", desde: "10:30", hasta: "15:30", orden: 1 },
-  { tipo_unidad: "local", nombre: "Noche", desde: "19:30", hasta: "06:00", orden: 2 },
-  { tipo_unidad: "fabrica", nombre: "Turno único", desde: "06:00", hasta: "16:00", orden: 1 },
-];
 
 /** Nombres lindos para los conceptos de Maxirest */
 const NOMBRE_CONCEPTO: Record<string, string> = { "mayorist": "Mayorista", "mayorista": "Mayorista", "de fabrica": "De fábrica", "v. menor": "V. menor" };
@@ -67,18 +63,40 @@ export function conceptoFabrica(t: Pick<Ticket, "concepto" | "formas_pago">, pro
   return formas.some((f) => propios.has(f)) ? VENTAS_A_LOCALES_PROPIOS : nombreConcepto(t.concepto);
 }
 
-const hhmm = (h: string) => h.slice(0, 5);
+export const DIA_COMPLETO = "Día completo";
+export const TURNO_UNICO = "Turno único";
 
-/** A qué turno pertenece una hora de entrada (los turnos que cruzan la medianoche, como la Noche, también se contemplan) */
-export function turnoPorHora(hora: string | null, turnos: TurnoConfig[]): string {
-  if (!hora) return FUERA_DE_TURNO;
-  const h = hhmm(hora);
-  for (const t of turnos) {
-    const d = hhmm(t.desde), hs = hhmm(t.hasta);
-    const adentro = d <= hs ? h >= d && h < hs : h >= d || h < hs;
-    if (adentro) return t.nombre;
-  }
-  return FUERA_DE_TURNO;
+/** Cómo se reparten los turnos en cada unidad */
+export interface ReglaTurnos {
+  nombres: string[];        // turnos que se muestran, en orden
+  unico: boolean;           // true = un solo turno (todo va junto)
+  nota: string;             // aclaración para la pantalla
+  deTicket: (t: Pick<Ticket, "turno_maxirest" | "hora_entrada">) => string;
+}
+
+/** Turno de Maxirest de un ticket (si viniera vacío, se deduce por la hora: desde las 17 h es Noche) */
+function turnoMaxirest(t: Pick<Ticket, "turno_maxirest" | "hora_entrada">): string {
+  if (t.turno_maxirest === 1) return TURNO_MAXIREST[1];
+  if (t.turno_maxirest === 2) return TURNO_MAXIREST[2];
+  const h = (t.hora_entrada ?? "").slice(0, 5);
+  return h && (h >= "17:00" || h < "06:00") ? TURNO_MAXIREST[2] : TURNO_MAXIREST[1];
+}
+
+export function reglaTurnos(u: Pick<UnidadDetalle, "tipo" | "fuente">): ReglaTurnos {
+  const unico = (nombre: string, nota: string): ReglaTurnos => ({ nombres: [nombre], unico: true, nota, deTicket: () => nombre });
+  if (u.tipo === "fabrica") return unico(TURNO_UNICO, "La fábrica trabaja en un solo turno: todas las ventas del día van juntas.");
+  if (u.fuente === "hiopos") return unico(DIA_COMPLETO, "En la feria hay un solo turno (el día completo, de la mañana a la noche): todas las ventas del día van juntas.");
+  return {
+    nombres: [TURNO_MAXIREST[1], TURNO_MAXIREST[2]], unico: false,
+    nota: "El turno es el que marca Maxirest en cada venta: Mediodía o Noche (Maxirest al Mediodía lo llama \"Mañana\").",
+    deTicket: turnoMaxirest,
+  };
+}
+
+/** Si la unidad tiene un solo turno, junta las formas de cobro y los artículos en ese turno */
+export function aplicarRegla<D extends { cobros: Cobro[]; articulos: ArticuloFila[] }>(d: D, regla: ReglaTurnos): D {
+  if (!regla.unico) return d;
+  return { ...d, cobros: d.cobros.map((c) => ({ ...c, turno: 1 })), articulos: d.articulos.map((a) => ({ ...a, turno: 1 })) };
 }
 
 /** La unidad es fábrica si así lo dice la columna "tipo" (o, si la columna todavía no existe, si es la Central 29979) */
@@ -91,18 +109,10 @@ export const hayBase = () => Boolean(process.env.SUPABASE_URL && process.env.SUP
 
 export async function obtenerUnidades(): Promise<UnidadDetalle[]> {
   if (!hayBase()) return PRUEBA_UNIDADES;
-  const filas = await db.leer<{ id: number; nombre: string; tipo?: string; maxirest_codigo: string | null }>(
+  const filas = await db.leer<{ id: number; nombre: string; tipo?: string; maxirest_codigo: string | null; fuente?: string | null }>(
     "unidades", "select=*&activa=eq.true&or=(maxirest_codigo.not.is.null,fuente.eq.hiopos)&order=id",
   );
-  return filas.map((u) => ({ id: u.id, nombre: u.nombre, tipo: tipoDeUnidad(u) }));
-}
-
-export async function obtenerTurnos(tipo: TipoUnidad): Promise<TurnoConfig[]> {
-  let lista = TURNOS_POR_DEFECTO;
-  if (hayBase()) {
-    try { lista = await db.leer<TurnoConfig>("turnos_config", "select=tipo_unidad,nombre,desde,hasta,orden&order=orden"); } catch {}
-  }
-  return lista.filter((t) => t.tipo_unidad === tipo).sort((a, b) => a.orden - b.orden);
+  return filas.map((u) => ({ id: u.id, nombre: u.nombre, tipo: tipoDeUnidad(u), fuente: u.fuente ?? (u.maxirest_codigo ? "maxirest" : null) }));
 }
 
 export async function obtenerEquivalencias(tipo: TipoUnidad): Promise<Map<number, number>> {
@@ -130,17 +140,20 @@ export interface FilaComparativoTurno {
 /** Comparativo por turno: cada LOCAL (nunca la fábrica), un día contra el mismo día de la semana anterior */
 export async function comparativoPorTurno(fecha: string) {
   const locales = (await obtenerUnidades()).filter((u) => u.tipo === "local");
-  const turnos = await obtenerTurnos("local");
   const anterior = sumarDias(fecha, -7);
   const ids = locales.map((u) => u.id);
   const [hoy, ant] = await Promise.all([obtenerTickets(ids, fecha, fecha), obtenerTickets(ids, anterior, anterior)]);
-  const nombres = [...turnos.map((t) => t.nombre)];
-  if ([...hoy, ...ant].some((t) => turnoPorHora(t.hora_entrada, turnos) === FUERA_DE_TURNO)) nombres.push(FUERA_DE_TURNO);
+  const reglas = new Map(locales.map((u) => [u.id, reglaTurnos(u)]));
+  // Columnas: Mediodía y Noche siempre; "Día completo" (ferias) solo si alguna feria vendió
+  const nombres = [TURNO_MAXIREST[1], TURNO_MAXIREST[2]];
+  const conTickets = new Set([...hoy, ...ant].map((t) => t.unidad_id));
+  for (const u of locales) for (const n of reglas.get(u.id)!.nombres) if (!nombres.includes(n) && conTickets.has(u.id)) nombres.push(n);
   const filas: FilaComparativoTurno[] = locales.map((u) => {
+    const regla = reglas.get(u.id)!;
     const porTurno: FilaComparativoTurno["porTurno"] = {};
     for (const n of nombres) porTurno[n] = { venta: 0, tickets: 0, ventaAnt: 0, ticketsAnt: 0 };
-    for (const t of hoy) if (t.unidad_id === u.id) { const x = porTurno[turnoPorHora(t.hora_entrada, turnos)]; x.venta += t.total; x.tickets++; }
-    for (const t of ant) if (t.unidad_id === u.id) { const x = porTurno[turnoPorHora(t.hora_entrada, turnos)]; x.ventaAnt += t.total; x.ticketsAnt++; }
+    for (const t of hoy) if (t.unidad_id === u.id) { const x = porTurno[regla.deTicket(t)]; if (x) { x.venta += t.total; x.tickets++; } }
+    for (const t of ant) if (t.unidad_id === u.id) { const x = porTurno[regla.deTicket(t)]; if (x) { x.ventaAnt += t.total; x.ticketsAnt++; } }
     const vals = Object.values(porTurno);
     return { id: u.id, nombre: u.nombre, porTurno, venta: vals.reduce((s, x) => s + x.venta, 0), ventaAnt: vals.reduce((s, x) => s + x.ventaAnt, 0) };
   });
@@ -197,19 +210,19 @@ export const textoRango = (d: string, h: string) => (d === h ? fechaCorta(d) : `
 
 export interface FilaTurno { turno: string; tickets: number; venta: number; descuentos: number; porConcepto: Record<string, { tickets: number; venta: number }> }
 
-/** Resumen de tickets por turno (por hora de entrada). Siempre muestra los turnos configurados, y "Fuera de turno" solo si hay. */
-export function resumenPorTurno(tickets: Ticket[], turnos: TurnoConfig[], concepto: (t: Ticket) => string = (t) => nombreConcepto(t.concepto)): FilaTurno[] {
+/** Resumen de tickets por turno (según la regla de turnos de la unidad), con el detalle por concepto */
+export function resumenPorTurno(tickets: Ticket[], regla: ReglaTurnos, concepto: (t: Ticket) => string = (t) => nombreConcepto(t.concepto)): FilaTurno[] {
   const filas = new Map<string, FilaTurno>();
   const fila = (t: string) => { let f = filas.get(t); if (!f) { f = { turno: t, tickets: 0, venta: 0, descuentos: 0, porConcepto: {} }; filas.set(t, f); } return f; };
-  turnos.forEach((t) => fila(t.nombre));
+  regla.nombres.forEach((n) => fila(n));
   for (const t of tickets) {
-    const f = fila(turnoPorHora(t.hora_entrada, turnos));
+    const f = fila(regla.deTicket(t));
     const c = concepto(t);
     f.tickets++; f.venta += t.total; f.descuentos += t.descuento;
     const pc = (f.porConcepto[c] ??= { tickets: 0, venta: 0 });
     pc.tickets++; pc.venta += t.total;
   }
-  return [...filas.values()].filter((f) => f.turno !== FUERA_DE_TURNO || f.tickets > 0);
+  return [...filas.values()];
 }
 
 export interface FilaCobro { forma: string; porTurno: Record<number, number>; cantidad: number; total: number }
