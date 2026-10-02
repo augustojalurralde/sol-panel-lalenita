@@ -2,12 +2,12 @@
  * SOL · Envío de ventas de la PLANILLA ROMINA al panel
  * ─────────────────────────────────────────────────────
  * Se pega UNA vez en la planilla: Extensiones → Apps Script.
- * Lee las pestañas MOLINO NORTE, MOLINO SUR, TOCKA VENTAS y FERIAS y manda
+ * Lee las pestañas MOLINO NORTE, MOLINO SUR y TOCKA VENTAS y manda
  * la venta de cada día (por turno y forma de cobro) al panel SOL.
- * No cambia nada de la planilla, salvo crear la pestaña FERIAS si no existe.
+ * No cambia nada de la planilla. (Las ferias NO van por acá: se leen de sus propios sistemas.)
  *
  * Funciones para usar desde el menú de arriba (elegirla y tocar "Ejecutar"):
- *   instalar          → la primera vez: crea FERIAS, carga el historial y deja el envío automático
+ *   instalar          → la primera vez: carga el historial y deja el envío automático
  *   enviarVentasSOL   → manda los últimos 60 días (es lo que corre solo cada 2 horas)
  *   enviarHistorial   → manda desde el 1/10/2025 (para cargar todo de nuevo)
  */
@@ -38,7 +38,6 @@ const FERIAS = {
 /* ───────────── Lo que se ejecuta ───────────── */
 
 function instalar() {
-  crearPestanaFerias_();
   ScriptApp.getProjectTriggers()
     .filter(function (t) { return t.getHandlerFunction() === 'enviarVentasSOL'; })
     .forEach(function (t) { ScriptApp.deleteTrigger(t); });

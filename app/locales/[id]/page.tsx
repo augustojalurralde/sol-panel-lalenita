@@ -49,7 +49,7 @@ export default async function DetalleLocal({ params, searchParams }: {
       {!d.tickets.length && !d.articulos.length ? (
         <p className="rounded-xl border border-slate-200 bg-white py-12 text-center text-slate-500">
           No hay ventas cargadas para {textoRango(desde, hasta)}.
-          <span className="mt-1 block text-xs text-slate-400">Puede que el local no haya cerrado en Maxirest o que todavía no se haya cargado ese período.</span>
+          <span className="mt-1 block text-xs text-slate-400">Puede que el local no haya cerrado en su sistema (Maxirest o HIOPOS), que la feria haya estado cerrada o que todavía no se haya cargado ese período.</span>
         </p>
       ) : (
         <>

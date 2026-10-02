@@ -92,7 +92,7 @@ export const hayBase = () => Boolean(process.env.SUPABASE_URL && process.env.SUP
 export async function obtenerUnidades(): Promise<UnidadDetalle[]> {
   if (!hayBase()) return PRUEBA_UNIDADES;
   const filas = await db.leer<{ id: number; nombre: string; tipo?: string; maxirest_codigo: string | null }>(
-    "unidades", "select=*&activa=eq.true&maxirest_codigo=not.is.null&order=id",
+    "unidades", "select=*&activa=eq.true&or=(maxirest_codigo.not.is.null,fuente.eq.hiopos)&order=id",
   );
   return filas.map((u) => ({ id: u.id, nombre: u.nombre, tipo: tipoDeUnidad(u) }));
 }

@@ -20,7 +20,7 @@ export function comparativoLocales(r: ResumenVentas) {
       const tendencia = u.previos7 > 0 ? variacion(u.ultimos7, u.previos7) : null;
 
       let recomendacion = "Sin acción necesaria";
-      if (!tieneAyer) recomendacion = u.fuente === "planilla" ? "Sin venta cargada en la planilla (¿día cerrado?)" : "Verificar cierre y sincronización de Maxirest";
+      if (!tieneAyer) recomendacion = u.fuente === "planilla" ? "Sin venta cargada en la planilla (¿día cerrado?)" : u.fuente === "hiopos" ? "Sin venta ayer en HIOPOS (¿feria cerrada?)" : "Verificar cierre y sincronización de Maxirest";
       else if (varPct === null) recomendacion = "Sin comparación (no hay datos de la semana anterior)";
       else if (semaforo !== "verde") {
         if (ticket !== null && ticketSemAnt !== null && ticket < ticketSemAnt) recomendacion = "Revisar ticket promedio";

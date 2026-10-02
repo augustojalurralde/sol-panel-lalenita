@@ -9,7 +9,7 @@ export interface VentasUnidad {
   nombre: string;
   tipo: "local" | "fabrica";        // la fábrica va aparte (nunca se compara con locales)
   grupo: string;                     // "La Leñita" o "Molinos y Tocka" (este va aparte, no se suma)
-  fuente: "maxirest" | "planilla";
+  fuente: "maxirest" | "planilla" | "hiopos";
   ventaAyer: number | null;          // null = no llegaron datos de ayer
   ventaMismoDiaSemAnt: number | null;
   ventaMes: number;
@@ -73,8 +73,8 @@ export async function obtenerVentas(): Promise<ResumenVentas> {
     db.leer<{ creado_en: string; estado: string }>("registro_cargas", "select=creado_en,estado&fuente=eq.Maxirest&order=creado_en.desc&limit=1"),
   ]);
 
-  // Con fuente = Maxirest o planilla de Google (Molinos, Tocka, ferias)
-  const fuenteDe = (u: Unidad) => (u.fuente === "planilla" ? "planilla" : u.maxirest_codigo ? "maxirest" : null);
+  // Con fuente = Maxirest, HIOPOS (La Rural) o planilla de Google (Molinos, Tocka, Hipódromo)
+  const fuenteDe = (u: Unidad) => (u.fuente === "planilla" ? "planilla" : u.fuente === "hiopos" ? "hiopos" : u.maxirest_codigo ? "maxirest" : null);
   const conFuente = unidades.filter((u) => fuenteDe(u));
   const ultimos = await Promise.all(
     conFuente.map((u) => db.leer<{ fecha: string }>("ventas_diarias", `select=fecha&unidad_id=eq.${u.id}&order=fecha.desc&limit=1`)),
@@ -91,7 +91,7 @@ export async function obtenerVentas(): Promise<ResumenVentas> {
       nombre: u.nombre,
       tipo: u.tipo === "fabrica" || (!u.tipo && u.maxirest_codigo === "29979") ? "fabrica" : "local",
       grupo: u.grupo || "La Leñita",
-      fuente: fuenteDe(u) as "maxirest" | "planilla",
+      fuente: fuenteDe(u) as "maxirest" | "planilla" | "hiopos",
       ventaAyer: fAyer ? Number(fAyer.total) : null,
       ventaMismoDiaSemAnt: fSem ? Number(fSem.total) : null,
       ventaMes: suma(inicioMes, ayer),

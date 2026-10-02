@@ -135,7 +135,7 @@ export default async function ComparativoLocales({ searchParams }: { searchParam
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-3 py-3.5 font-semibold">
-                  {f.fuente === "maxirest" ? (
+                  {f.fuente === "maxirest" || f.fuente === "hiopos" ? (
                     <Link href={`/locales/${f.id}`} className="text-slate-900 hover:text-blue-600 hover:underline">{f.nombre}</Link>
                   ) : (
                     <span className="text-slate-900">{f.nombre} <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">planilla</span></span>
@@ -153,7 +153,7 @@ export default async function ComparativoLocales({ searchParams }: { searchParam
                   <span className="flex items-center gap-2"><IconoPersona className="h-4 w-4 text-slate-500" />{f.responsable}</span>
                 </td>
                 <td className="max-w-[180px] px-3 py-3.5 text-xs text-slate-400">
-                  {f.ventaAyer === null && f.ultimoDia ? `Último dato: ${f.ultimoDia.slice(8, 10)}/${f.ultimoDia.slice(5, 7)}` : f.ultimoDia ? "Sin novedades" : f.fuente === "planilla" ? "Todavía no hay ventas cargadas" : "Nunca informó ventas a Maxirest online"}
+                  {f.ventaAyer === null && f.ultimoDia ? `Último dato: ${f.ultimoDia.slice(8, 10)}/${f.ultimoDia.slice(5, 7)}` : f.ultimoDia ? "Sin novedades" : f.fuente === "planilla" ? "Todavía no hay ventas cargadas" : f.fuente === "hiopos" ? "Todavía no hay ventas en HIOPOS" : "Nunca informó ventas a Maxirest online"}
                 </td>
                 <td className="max-w-[200px] px-3 py-3.5 text-xs text-slate-700">{f.recomendacion}</td>
               </tr>
