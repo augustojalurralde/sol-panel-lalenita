@@ -54,7 +54,26 @@ export async function iniciarSesionHiopos(usuario: string, password: string): Pr
     try { msg = ((await r.json()) as { message?: string }).message ?? ""; } catch {}
     throw new Error(`HIOPOS no dejó entrar (${r.status}${msg ? ": " + msg.trim() : ""}). ¿Usuario o contraseña incorrectos?`);
   }
+  await prepararSesion(token);
   return token;
+}
+
+/** Después de entrar, la página de HIOPOS carga la configuración y el "diccionario" de informes.
+ *  Sin esto, las consultas responden error 500, así que se hace lo mismo (si algo falla, se sigue igual). */
+async function prepararSesion(token: string) {
+  const h = { "Content-Type": "application/json", Accept: "application/json", "x-auth-token": token };
+  const pedir = (ruta: string, cuerpo?: unknown) =>
+    fetch(`${SERVIDOR}${ruta}`, { method: cuerpo === undefined ? "GET" : "POST", headers: h, body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo), cache: "no-store" })
+      .then((r) => r.arrayBuffer()).catch(() => null);
+  await pedir("/report/isIcgUser/");
+  await pedir("/report/checkRestorePoint");
+  await pedir("/report/setSessionRegionalConfiguration", { decimalSeparator: ",", thousandSeparator: "." });
+  await pedir("/report/getUser?mobileMode=false");
+  await pedir("/entityLoader/company");
+  for (const entidad of ["Dashboard", "DataSource", "Dimension", "Attribute", "Metric", "Filter"]) {
+    await pedir(`/report/list/${entidad}`, { entity: entidad, specTypeId: 2 });
+  }
+  await pedir("/report/getSessionConstants", null);
 }
 
 /** Cierra la sesión (para no dejar sesiones abiertas en HIOPOS) */
