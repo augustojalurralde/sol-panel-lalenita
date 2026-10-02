@@ -195,6 +195,9 @@ export default async function Inicio() {
           <Link href="/locales" className="mt-4 flex items-center justify-center gap-1 rounded-lg border border-blue-200 bg-blue-50 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100">
             Ver comparativo de locales <IconoFlechaDerecha className="h-3.5 w-3.5" />
           </Link>
+          <Link href="/locales/estadisticas" className="mt-2 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            Ver estadísticas de ventas <IconoFlechaDerecha className="h-3.5 w-3.5" />
+          </Link>
         </Tarjeta>
 
         <Tarjeta titulo="Alertas que requieren acción" className="lg:col-span-2">

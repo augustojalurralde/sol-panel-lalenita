@@ -106,7 +106,10 @@ export default async function ComparativoLocales({ searchParams }: { searchParam
 
   return (
     <>
-      <Encabezado titulo="Comparativo de Locales" pregunta="¿Qué local necesita atención y por qué?" extra={<Fuente real={r.real} />} />
+      <Encabezado titulo="Comparativo de Locales" pregunta="¿Qué local necesita atención y por qué?" extra={<>
+        <Link href="/locales/estadisticas" className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700">Estadísticas</Link>
+        <Fuente real={r.real} />
+      </>} />
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[1100px] text-sm">
