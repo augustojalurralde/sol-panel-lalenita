@@ -26,7 +26,7 @@
 1. Supabase → SQL Editor → pegar `supabase/migracion-005-pedidos-web.sql` → Run.
 2. Vercel → Settings → Environment Variables:
    - `TELEGRAM_BOT_TOKEN` (de @BotFather)
-   - `TELEGRAM_CHAT_ID` (lo da `/id` en el grupo)
+   - `TELEGRAM_CHAT_ID` (opcional: si no está, el bot se vincula solo al primer grupo donde lo agregan)
    - `TIENDANUBE_APP_ID` y `TIENDANUBE_CLIENT_SECRET` (de la app creada en el Portal de Socios de Tiendanube)
 3. Abrir `https://sol-panel-lalenita.vercel.app/api/telegram/configurar`
 4. Abrir `https://sol-panel-lalenita.vercel.app/api/tiendanube/instalar` y aceptar los permisos.

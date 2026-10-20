@@ -11,12 +11,12 @@ export async function GET(req: Request) {
   const origen = new URL(req.url).origin;
   try {
     await configurarWebhook(`${origen}/api/telegram`, secretoTelegram());
-    const grupo = grupoFabrica();
+    const grupo = await grupoFabrica();
     return Response.json({
       ok: true,
       mensaje: grupo
         ? `Bot conectado. Responde en el grupo ${grupo}.`
-        : "Bot conectado. Falta el grupo: escribí /id en el grupo de la fábrica y cargá ese número en Vercel como TELEGRAM_CHAT_ID.",
+        : "Bot conectado. Falta el grupo: agregá el bot al grupo de la fábrica y se vincula solo.",
     });
   } catch (e) {
     return Response.json({ ok: false, error: String(e instanceof Error ? e.message : e) }, { status: 500 });

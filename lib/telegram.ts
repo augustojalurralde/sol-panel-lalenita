@@ -3,6 +3,7 @@
 // Ambas se cargan en Vercel → Settings → Environment Variables. Nunca van en el código.
 
 import { createHash } from "crypto";
+import { db } from "./supabase";
 
 export interface Boton { text: string; callback_data?: string; url?: string }
 export type Teclado = Boton[][];
@@ -13,9 +14,19 @@ function token() {
   return t;
 }
 
-/** Grupo de la fábrica donde llegan los pedidos (null si todavía no se cargó) */
-export function grupoFabrica(): string | null {
-  return process.env.TELEGRAM_CHAT_ID?.trim() || null;
+/** Grupo de la fábrica donde llegan los pedidos (null si todavía no se vinculó).
+ *  Primero mira TELEGRAM_CHAT_ID en Vercel; si no está, el grupo que quedó guardado
+ *  solo la primera vez que se agregó el bot a un grupo (tabla integraciones). */
+export async function grupoFabrica(): Promise<string | null> {
+  const env = process.env.TELEGRAM_CHAT_ID?.trim();
+  if (env) return env;
+  const [fila] = await db.leer<{ datos: { chat_id?: string } }>("integraciones", "select=datos&nombre=eq.telegram");
+  return fila?.datos?.chat_id ?? null;
+}
+
+/** Guarda el grupo de la fábrica (solo se usa si todavía no había ninguno) */
+export async function vincularGrupo(chatId: string | number, titulo: string) {
+  await db.guardar("integraciones", [{ nombre: "telegram", datos: { chat_id: String(chatId), titulo }, actualizado_en: new Date().toISOString() }], "nombre");
 }
 
 async function llamar<T = unknown>(metodo: string, datos: object): Promise<T> {
@@ -71,7 +82,7 @@ export async function configurarWebhook(url: string, secreto: string) {
   await llamar("setWebhook", {
     url,
     secret_token: secreto,
-    allowed_updates: ["message", "callback_query"],
+    allowed_updates: ["message", "callback_query", "my_chat_member"],
     drop_pending_updates: true,
   });
   await llamar("setMyCommands", {
@@ -81,6 +92,7 @@ export async function configurarWebhook(url: string, secreto: string) {
       { command: "stock", description: "Cargar stock: /stock pollo 40" },
       { command: "agotado", description: "Marcar sin stock: /agotado pizza ternera" },
       { command: "ayuda", description: "Cómo usar el bot" },
+      { command: "vincular", description: "Usar este grupo para los pedidos" },
       { command: "id", description: "Número de este grupo" },
     ],
   });

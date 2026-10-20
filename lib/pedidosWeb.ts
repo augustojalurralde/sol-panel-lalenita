@@ -201,7 +201,7 @@ export async function registrarPedido(tn: PedidoTN) {
   await db.guardar("pedidos_web", [{ ...nuevo, actualizado_en: ahora() }], "id");
   await db.insertar("pedidos_web_eventos", [{ pedido_id: nuevo.id, estado: nuevo.estado, quien: "Tiendanube" }]);
 
-  const grupo = grupoFabrica();
+  const grupo = await grupoFabrica();
   if (grupo) {
     const msg = await enviar(grupo, textoPedido(nuevo), botones(nuevo));
     await db.actualizar("pedidos_web", `id=eq.${nuevo.id}`, { telegram_mensaje_id: msg });
@@ -212,7 +212,7 @@ export async function registrarPedido(tn: PedidoTN) {
 
 async function refrescarMensaje(id: number) {
   const p = await buscar(id);
-  const grupo = grupoFabrica();
+  const grupo = await grupoFabrica();
   if (p && grupo && p.telegram_mensaje_id) await editar(grupo, p.telegram_mensaje_id, textoPedido(p), botones(p));
   return p;
 }

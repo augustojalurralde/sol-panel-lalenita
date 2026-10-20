@@ -4,15 +4,18 @@
 // Solo se obedece al grupo de la fábrica (TELEGRAM_CHAT_ID). /id responde en cualquier chat,
 // así se puede averiguar el número del grupo la primera vez.
 
-import { enviar, grupoFabrica, html, responderBoton, secretoTelegram } from "@/lib/telegram";
+import { enviar, grupoFabrica, html, responderBoton, secretoTelegram, vincularGrupo } from "@/lib/telegram";
 import { cambiarEstado, diaAR, ESTADOS, pedidosAbiertos, produccionDelDia, textoFecha, type Estado } from "@/lib/pedidosWeb";
 import { buscarProductos, ponerStock } from "@/lib/tiendanube";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+interface Chat { id: number; type: string; title?: string }
+
 interface Update {
-  message?: { chat: { id: number; type: string }; from?: { first_name?: string }; text?: string };
+  message?: { chat: Chat; from?: { first_name?: string }; text?: string };
+  my_chat_member?: { chat: Chat; new_chat_member: { status: string } };
   callback_query?: { id: string; data?: string; from: { first_name?: string }; message?: { chat: { id: number } } };
 }
 
@@ -29,18 +32,33 @@ const AYUDA = [
   "/stock pollo 40 — pone 40 unidades de stock",
   "/stock pollo libre — vuelve a stock sin límite",
   "/agotado pizza ternera — marca sin stock (no se puede comprar)",
+  "/pedidos y /produccion también se pueden ver en el panel → Pedidos Web",
 ].join("\n");
 
 const pesos = (n: number) => "$" + Math.round(n).toLocaleString("es-AR");
 
-async function comando(chatId: number, texto: string) {
+/** La primera vez que el bot entra a un grupo, ese grupo queda como el de la fábrica */
+async function intentarVincular(chat: Chat) {
+  const actual = await grupoFabrica();
+  if (actual === String(chat.id)) return enviar(chat.id, "✔ Este ya es el grupo de pedidos de la fábrica.\n\n" + AYUDA);
+  if (actual) return enviar(chat.id, "Este bot ya está vinculado a otro grupo de la fábrica. Si hay que cambiarlo, avisale a Augusto.");
+  await vincularGrupo(chat.id, chat.title ?? "");
+  return enviar(chat.id, "✅ <b>Grupo vinculado.</b> Desde ahora los pedidos de la tienda online llegan acá.\n\n" + AYUDA);
+}
+
+async function comando(chat: Chat, texto: string) {
+  const chatId = chat.id;
   const [primero, ...resto] = texto.trim().split(/\s+/);
   const cmd = primero.toLowerCase().replace(/@.*$/, "");
   const args = resto.join(" ").trim();
 
   if (cmd === "/id") return enviar(chatId, `El número de este chat es: <code>${chatId}</code>`);
 
-  const grupo = grupoFabrica();
+  const grupo = await grupoFabrica();
+  if (cmd === "/vincular") {
+    if (chat.type === "private") return enviar(chatId, "Esto se hace dentro del grupo de la fábrica, no por privado.");
+    return intentarVincular(chat);
+  }
   if (!grupo || String(chatId) !== grupo) return; // otros chats: no se obedece
 
   switch (cmd) {
@@ -102,7 +120,7 @@ export async function POST(req: Request) {
     if (u.callback_query) {
       const q = u.callback_query;
       const [tipo, id, accion] = (q.data ?? "").split(":");
-      if (tipo !== "p" || String(q.message?.chat.id) !== grupoFabrica()) {
+      if (tipo !== "p" || String(q.message?.chat.id) !== (await grupoFabrica())) {
         await responderBoton(q.id, "Este botón no es válido acá");
       } else if (!(accion in ESTADOS)) {
         await responderBoton(q.id, "Acción desconocida");
@@ -110,8 +128,12 @@ export async function POST(req: Request) {
         await cambiarEstado(Number(id), accion as Estado, q.from.first_name ?? "Fábrica");
         await responderBoton(q.id, `${ESTADOS[accion as Estado].icono} ${ESTADOS[accion as Estado].texto}`);
       }
+    } else if (u.my_chat_member) {
+      // Agregaron el bot a un grupo
+      const { chat, new_chat_member } = u.my_chat_member;
+      if (chat.type !== "private" && ["member", "administrator"].includes(new_chat_member.status)) await intentarVincular(chat);
     } else if (u.message?.text?.startsWith("/")) {
-      await comando(u.message.chat.id, u.message.text);
+      await comando(u.message.chat, u.message.text);
     }
   } catch (e) {
     const chat = u.callback_query?.message?.chat.id ?? u.message?.chat.id;
