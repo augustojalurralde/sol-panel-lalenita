@@ -110,8 +110,18 @@ export async function POST(req: Request) {
         if (!esFecha(c.desde)) return mal("Falta desde (lunes)");
         const desde = lunesDe(c.desde);
         const ventas = ((c.ventas_local as Record<string, unknown>[] | undefined) ?? []).map((v) => ({ ...v, desde, fuente: "factura", actualizado_en: ahora() }));
-        const dias = ((c.dias as Record<string, unknown>[] | undefined) ?? []).filter((d) => esFecha(d.fecha)).map((d) => ({ ...d, fuente: "factura", actualizado_en: ahora() }));
-        const cargos = ((c.cargos as Record<string, unknown>[] | undefined) ?? []).filter((x) => x.nro && x.tipo).map((x) => ({ ...x, semana: desde, actualizado_en: ahora() }));
+        const dias = [...new Map(((c.dias as Record<string, unknown>[] | undefined) ?? []).filter((d) => esFecha(d.fecha))
+          .map((d) => [`${d.fecha}|${d.local}`, { ...d, fuente: "factura", actualizado_en: ahora() }] as const)).values()];
+        // Un mismo pedido puede tener dos reclamos: se suman en una sola fila (pedido + tipo)
+        const porClave = new Map<string, Record<string, unknown>>();
+        for (const x of ((c.cargos as Record<string, unknown>[] | undefined) ?? []).filter((x) => x.nro && x.tipo)) {
+          const k = `${x.nro}|${x.tipo}`;
+          const previo = porClave.get(k);
+          if (!previo) { porClave.set(k, { ...x, semana: desde, actualizado_en: ahora() }); continue; }
+          previo.monto = (Number(previo.monto) || 0) + (Number(x.monto) || 0);
+          if (x.motivo && !String(previo.motivo ?? "").includes(String(x.motivo))) previo.motivo = [previo.motivo, x.motivo].filter(Boolean).join(" + ");
+        }
+        const cargos = [...porClave.values()];
         if (!ventas.length) return mal("El estado de cuenta no trae pedidos");
         await enTandas("peya_ventas_local", ventas, "desde,local");
         if (dias.length) await enTandas("peya_dia_local", dias, "fecha,local");
