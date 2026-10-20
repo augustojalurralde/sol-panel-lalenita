@@ -257,7 +257,7 @@ function Cuadre({ d }: { d: DatosSemana }) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead><tr className="border-b border-slate-200">
-          <th className={th}>Unidad del SOL</th><th className={thR}>PedidosYa (bruto)</th><th className={thR}>Cobrado como PedidosYa en Maxirest</th><th className={thR}>Diferencia</th><th className={th}>Forma en Maxirest</th>
+          <th className={th}>Unidad del SOL</th><th className={thR}>PedidosYa (venta neta)</th><th className={thR}>Cobrado como PedidosYa en Maxirest</th><th className={thR}>Diferencia</th><th className={th}>Forma en Maxirest</th>
         </tr></thead>
         <tbody>
           {d.maxirest.map((m) => {
@@ -276,7 +276,7 @@ function Cuadre({ d }: { d: DatosSemana }) {
         </tbody>
       </table>
       <p className="mt-2 text-xs text-slate-400">
-        Recoleta suma La Leñita Empanadas Tucumanas y San Guchero. Falta validar si Maxirest registra el precio antes o después del descuento del local; hasta entonces, una diferencia parecida al descuento es normal.
+        Recoleta suma La Leñita Empanadas Tucumanas y San Guchero. PedidosYa = venta neta (después del descuento del local, antes de la comisión). Barrio Sur no tiene cobros de Maxirest hasta que se arregle su sincronización.
       </p>
     </div>
   );

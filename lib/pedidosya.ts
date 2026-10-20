@@ -98,7 +98,8 @@ async function cuadreMaxirest(locales: LocalPeya[], dias: DiaLocal[], desde: str
   for (const d of dias) {
     const u = unidadDe.get(d.local);
     if (!u) continue;
-    peyaPorUnidad.set(u, (peyaPorUnidad.get(u) ?? 0) + Number(d.bruto));
+    // Venta neta (después del descuento del local) cuando está; si no, la bruta del reporte
+    peyaPorUnidad.set(u, (peyaPorUnidad.get(u) ?? 0) + Number(d.neta ?? d.bruto));
   }
   if (!peyaPorUnidad.size) return [];
   const unidades = await db.leer<{ id: number; nombre: string; fuente?: string | null }>("unidades", "select=id,nombre,fuente");
