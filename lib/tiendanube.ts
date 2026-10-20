@@ -1,9 +1,10 @@
 // lib/tiendanube.ts — Conexión con la tienda online (lalenitacongelados.mitiendanube.com)
-// Variables en Vercel: TIENDANUBE_APP_ID y TIENDANUBE_CLIENT_SECRET (los da Tiendanube al crear la app).
-// La clave de acceso a la tienda NO se copia a mano: el panel la guarda solo en la tabla
-// "integraciones" cuando se instala la app (ver app/api/tiendanube/instalar).
+// FORMA SIMPLE (la que usamos): "Aplicación a medida" creada en el admin de Tiendanube.
+//   Variable en Vercel: TIENDANUBE_ACCESS_TOKEN (el token de la app). Opcional: TIENDANUBE_STORE_ID.
+// FORMA ALTERNATIVA: app del Portal de Socios (TIENDANUBE_APP_ID + TIENDANUBE_CLIENT_SECRET),
+//   que guarda la clave sola en la tabla "integraciones" (ver app/api/tiendanube/instalar).
 
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { db } from "./supabase";
 
 const USER_AGENT = "SOL La Lenita (fabrica.lenita@gmail.com)";
@@ -42,7 +43,12 @@ export async function completarInstalacion(codigo: string) {
   return acceso;
 }
 
+/** Número de la tienda La Leñita Congelados en Tiendanube */
+const TIENDA = process.env.TIENDANUBE_STORE_ID?.trim() || "6933569";
+
 async function acceso(): Promise<Acceso> {
+  const token = process.env.TIENDANUBE_ACCESS_TOKEN?.trim();
+  if (token) return { access_token: token, store_id: TIENDA };
   const [fila] = await db.leer<{ datos: Acceso }>("integraciones", "select=datos&nombre=eq.tiendanube");
   if (!fila?.datos?.access_token) throw new Error("La tienda todavía no está conectada (falta instalar la app)");
   return fila.datos;
@@ -61,17 +67,37 @@ export async function api<T = unknown>(ruta: string, init: { method?: string; bo
   return (texto ? JSON.parse(texto) : null) as T;
 }
 
-/** Comprueba que un aviso (webhook) viene de verdad de Tiendanube */
-export function avisoAutentico(cuerpo: string, firma: string | null) {
-  if (!firma) return false;
-  const esperada = createHmac("sha256", secretoApp()).update(cuerpo, "utf8").digest("hex");
-  const a = Buffer.from(esperada), b = Buffer.from(firma.trim().toLowerCase());
-  return a.length === b.length && timingSafeEqual(a, b);
+/** Clave que va en la dirección del aviso (se calcula del token: no hay que cargar otra variable) */
+export async function claveAviso() {
+  const { access_token } = await acceso();
+  return createHash("sha256").update("aviso:" + access_token).digest("hex").slice(0, 32);
 }
 
-/** Pide a Tiendanube que avise al panel cada vez que pasa algo con un pedido */
-export async function registrarAvisos(urlAviso: string) {
+const iguales = (x: string, y: string) => {
+  const a = Buffer.from(x), b = Buffer.from(y);
+  return a.length === b.length && timingSafeEqual(a, b);
+};
+
+/** Comprueba que un aviso (webhook) viene de verdad de Tiendanube:
+ *  con la clave de la dirección (?k=…) o, si hay app de socios, con la firma de Tiendanube */
+export async function avisoAutentico(cuerpo: string, firma: string | null, clave: string | null) {
+  if (clave && iguales(clave, await claveAviso())) return true;
+  if (firma && process.env.TIENDANUBE_CLIENT_SECRET) {
+    const esperada = createHmac("sha256", secretoApp()).update(cuerpo, "utf8").digest("hex");
+    return iguales(esperada, firma.trim().toLowerCase());
+  }
+  return false;
+}
+
+/** Pide a Tiendanube que avise al panel cada vez que pasa algo con un pedido.
+ *  "base" = dirección del aviso sin clave (ej: https://sol-panel-lalenita.vercel.app/api/tiendanube/aviso) */
+export async function registrarAvisos(base: string) {
+  const urlAviso = `${base}?k=${await claveAviso()}`;
   const existentes = await api<{ id: number; event: string; url: string }[]>("/webhooks");
+  // Saca avisos viejos a esta misma dirección con otra clave (por ejemplo si se cambió el token)
+  for (const w of existentes) {
+    if (w.url.startsWith(base) && w.url !== urlAviso) await api(`/webhooks/${w.id}`, { method: "DELETE" });
+  }
   const eventos = ["order/created", "order/paid", "order/cancelled"];
   const hechos: string[] = [];
   for (const ev of eventos) {

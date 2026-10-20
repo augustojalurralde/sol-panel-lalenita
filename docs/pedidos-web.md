@@ -27,10 +27,11 @@
 2. Vercel → Settings → Environment Variables:
    - `TELEGRAM_BOT_TOKEN` (de @BotFather)
    - `TELEGRAM_CHAT_ID` (opcional: si no está, el bot se vincula solo al primer grupo donde lo agregan)
-   - `TIENDANUBE_APP_ID` y `TIENDANUBE_CLIENT_SECRET` (de la app creada en el Portal de Socios de Tiendanube)
+   - `TIENDANUBE_ACCESS_TOKEN`: token de la "Aplicación a medida" (admin de Tiendanube → Aplicaciones a medida;
+     permisos de Pedidos y Productos). Después de cargarlo hay que volver a publicar (Redeploy).
 3. Abrir `https://sol-panel-lalenita.vercel.app/api/telegram/configurar`
-4. Abrir `https://sol-panel-lalenita.vercel.app/api/tiendanube/instalar` y aceptar los permisos.
-   El panel guarda solo la clave de la tienda (tabla `integraciones`) y activa los avisos de pedidos.
+4. Agregar el bot al grupo (link `https://t.me/lalenita_pedidos_bot?startgroup=vincular`): se vincula solo.
+5. Abrir `https://sol-panel-lalenita.vercel.app/api/tiendanube/conectar`: activa los avisos de pedidos.
 
 ## Pendiente (próximas etapas)
 - Mensaje al cliente 100% automático (API de WhatsApp Business).

@@ -12,7 +12,8 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
   const cuerpo = await req.text();
-  if (!avisoAutentico(cuerpo, req.headers.get("x-linkedstore-hmac-sha256"))) {
+  const clave = new URL(req.url).searchParams.get("k");
+  if (!(await avisoAutentico(cuerpo, req.headers.get("x-linkedstore-hmac-sha256"), clave))) {
     return Response.json({ ok: false, error: "Firma inválida" }, { status: 401 });
   }
 
