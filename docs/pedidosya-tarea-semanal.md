@@ -30,9 +30,9 @@ dentro del navegador y no guarda nada en la compu.
    (ícono de documento) de la fila de S, pegar el PASO 2 y mandar el resultado al SOL con `enviar()` (abajo):
    `enviar({ tipo: "estado_de_cuenta", ...resultado })`. Controlar que la venta neta y la comisión del resultado
    (`controles`) sean iguales a la liquidación.
-4. **Liquidación de S.** En la misma lista, "Ver detalle" de la semana S → `enviar({ tipo: "liquidacion", texto: document.querySelector('main').innerText })`.
+4. **Liquidación de S.** Con el PASO 3 del lector (iframe con el "Ver detalle" de la semana; la página no tiene `<main>`, se usa `body.innerText`) → `enviar({ tipo: "liquidacion", texto })`.
 5. **Operación por local** de S y S+1: `https://portal-app.pedidosya.com/reports?tab=ops&mode=page&from=<lunes>&to=<domingo>&prevFrom=<lunes-7>&prevTo=<domingo-7>`
-   (esperar a que aparezcan los locales) → `enviar({ tipo: "operaciones", desde: "<lunes>", texto: document.querySelector('main').innerText })`.
+   (esperar a que aparezcan los locales) → `enviar({ tipo: "operaciones", desde: "<lunes>", texto: document.querySelector("main").innerText })` (los reportes sí tienen `<main>`).
 6. **Adelanto de S+1:** `…/reports?tab=sales&…` de S+1 → `enviar({ tipo: "ventas", desde: "<lunes de S+1>", texto: … })`.
 7. **Leer todo junto:** abrir `https://sol-panel-lalenita.vercel.app/api/pedidosya?semana=<lunes de S>` en la pestaña del
    panel y leer el JSON: liquidación, ventas y operación por local (con semana anterior y año anterior), cargos,
