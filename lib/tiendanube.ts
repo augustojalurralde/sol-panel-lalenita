@@ -63,6 +63,8 @@ export async function api<T = unknown>(ruta: string, init: { method?: string; bo
     cache: "no-store",
   });
   const texto = await r.text();
+  // Cuando una lista está vacía Tiendanube responde 404 "Last page is 0": es una lista vacía, no un error
+  if (r.status === 404 && /Last page is 0/i.test(texto)) return [] as T;
   if (!r.ok) throw new Error(`Tiendanube ${r.status}: ${texto.slice(0, 300)}`);
   return (texto ? JSON.parse(texto) : null) as T;
 }
