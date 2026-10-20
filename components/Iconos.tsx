@@ -18,6 +18,7 @@ export const IconoTesoreria = (p: P) => (<Base {...p}><rect x="3" y="3" width="1
 export const IconoResultados = (p: P) => (<Base {...p}><rect x="3" y="3" width="18" height="18" rx="3" /><path d="m7 15 3.5-3.5 3 3L18 9" /></Base>);
 export const IconoObjetivos = (p: P) => (<Base {...p}><rect x="4" y="3" width="16" height="18" rx="2.5" /><path d="m8.5 12 2.5 2.5 4.5-5" /></Base>);
 export const IconoPedidos = (p: P) => (<Base {...p}><path d="M5 7h14l-1.2 12.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 7Z" /><path d="M9 7V5.5a3 3 0 0 1 6 0V7" /></Base>);
+export const IconoMoto = (p: P) => (<Base {...p}><circle cx="6" cy="17" r="3" /><circle cx="18" cy="17" r="3" /><path d="M9 17h6l-2.5-6H8M14 7h3l3 10" /></Base>);
 export const IconoCalendario = (p: P) => (<Base {...p}><rect x="3" y="4.5" width="18" height="16.5" rx="2.5" /><path d="M3 9.5h18M8 3v3M16 3v3" /></Base>);
 export const IconoAlerta = (p: P) => (<Base {...p}><path d="M10.3 3.9 1.8 18.5A2 2 0 0 0 3.5 21.5h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4.5M12 17.5h.01" /></Base>);
 export const IconoPersona = (p: P) => (<Base {...p}><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5" /></Base>);

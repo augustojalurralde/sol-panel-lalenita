@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Logo, IconoInicio, IconoLocales, IconoFabrica,
-  IconoTesoreria, IconoResultados, IconoObjetivos, IconoPedidos,
+  IconoTesoreria, IconoResultados, IconoObjetivos, IconoPedidos, IconoMoto,
 } from "./Iconos";
 
 const secciones = [
@@ -13,6 +13,7 @@ const secciones = [
   { href: "/locales", texto: "Comparativo de Locales", Icono: IconoLocales },
   { href: "/fabrica", texto: "Estado de la Fábrica", Icono: IconoFabrica },
   { href: "/pedidos", texto: "Pedidos Web", Icono: IconoPedidos },
+  { href: "/pedidosya", texto: "PedidosYa", Icono: IconoMoto },
   { href: "/tesoreria", texto: "Tesorería", Icono: IconoTesoreria },
   { href: "/resultados", texto: "Estado de Resultados", Icono: IconoResultados },
   { href: "/objetivos", texto: "Objetivos y Dirección", Icono: IconoObjetivos },
@@ -32,7 +33,7 @@ function Marca() {
 
 export default function Sidebar() {
   const ruta = usePathname();
-  const activa = (href: string) => (href === "/" ? ruta === "/" : ruta.startsWith(href));
+  const activa = (href: string) => (href === "/" ? ruta === "/" : ruta === href || ruta.startsWith(href + "/"));
 
   return (
     <>

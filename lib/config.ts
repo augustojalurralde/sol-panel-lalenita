@@ -65,3 +65,24 @@ export const reglasPedidosWeb = {
     { sector: "Milanesas", palabras: ["milanesa", "suprema", "hamburguesa"] },
   ],
 };
+
+// ─── PEDIDOSYA ───────────────────────────────────────────────────────────────
+// Reglas para la sección PedidosYa: qué se marca para reclamar y cómo se cuadra con Maxirest.
+export const reglasPedidosYa = {
+  // Tope de publicidad acordado con PedidosYa (% de la venta). La base (bruta o neta) está SIN DEFINIR:
+  // falta el acuerdo firmado. Mientras tanto se muestra sobre la venta neta de la liquidación.
+  publicidadTopePct: 4,
+  publicidadBase: null as null | "bruta" | "neta",
+  // Reclamo de cliente que devolvió este % del pedido o más → revisar si correspondía devolver todo
+  reclamoAltoPct: 90,
+  // Diferencia PedidosYa vs Maxirest (por local y semana) a partir de la cual se marca en rojo / amarillo (%)
+  cuadre: { amarilloDesde: 1, rojoDesde: 3 },
+  // Cuenta del contrato (últimos 4 números). Si una liquidación dice otra cuenta, se avisa.
+  cuentaContrato: "4181",
+  // Motivos de rechazo que hay que revisar (puede que el local estuviera abierto)
+  rechazosARevisar: ["restaurante cerrado", "no atiende"],
+  // Cómo se llama el cobro de PedidosYa en Maxirest (se compara sin mayúsculas; alcanza con que contenga el texto)
+  formasMaxirest: ["peya", "pedidos ya", "pedidosya"],
+  // Horas no disponible por semana a partir de las cuales el local se marca en rojo
+  horasNoDisponibleRojo: 4,
+};
