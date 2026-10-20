@@ -48,4 +48,7 @@ export const db = {
   borrar: (tabla: string, filtro: string) => rest<null>(`${tabla}?${filtro}`, { method: "DELETE", headers: { Prefer: "return=minimal" } }),
   insertar: (tabla: string, filas: object[]) =>
     rest<null>(tabla, { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify(filas) }),
+  /** Cambia algunos campos de las filas que cumplen el filtro (ej: "id=eq.123") */
+  actualizar: (tabla: string, filtro: string, cambios: object) =>
+    rest<null>(`${tabla}?${filtro}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify(cambios) }),
 };

@@ -5,13 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Logo, IconoInicio, IconoLocales, IconoFabrica,
-  IconoTesoreria, IconoResultados, IconoObjetivos,
+  IconoTesoreria, IconoResultados, IconoObjetivos, IconoPedidos,
 } from "./Iconos";
 
 const secciones = [
   { href: "/", texto: "Inicio", Icono: IconoInicio },
   { href: "/locales", texto: "Comparativo de Locales", Icono: IconoLocales },
   { href: "/fabrica", texto: "Estado de la Fábrica", Icono: IconoFabrica },
+  { href: "/pedidos", texto: "Pedidos Web", Icono: IconoPedidos },
   { href: "/tesoreria", texto: "Tesorería", Icono: IconoTesoreria },
   { href: "/resultados", texto: "Estado de Resultados", Icono: IconoResultados },
   { href: "/objetivos", texto: "Objetivos y Dirección", Icono: IconoObjetivos },

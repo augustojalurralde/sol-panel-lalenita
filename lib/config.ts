@@ -45,3 +45,23 @@ export function semaforoCobro(diasRestantes: number): Semaforo {
 
 export const textoPago: Record<Semaforo, string> = { rojo: "Urgente", amarillo: "Próximo", verde: "Programado", gris: "Sin definir" };
 export const textoCobro: Record<Semaforo, string> = { rojo: "Vencido", amarillo: "Próximo", verde: "Futuro", gris: "Sin definir" };
+
+// ─── PEDIDOS DE LA TIENDA ONLINE (Tiendanube) ─────────────────────────────────
+// Para cuándo tiene que estar listo un pedido y qué sector produce cada producto.
+export const reglasPedidosWeb = {
+  // Pedido que entra antes de esta hora → listo el siguiente día hábil; después → a los 2 días hábiles
+  horaCorte: 12,
+  // Hora a la que el pedido está listo para retirar
+  horaListo: 15,
+  // Días que NO se entrega (0 = domingo, 6 = sábado)
+  diasSinEntrega: [0],
+  // Sector de la fábrica según palabras del nombre del producto (el primero que coincide)
+  sectores: [
+    { sector: "Empanadas", palabras: ["empanada", "canastita", "sfija"] },
+    { sector: "Pastas", palabras: ["sorrentino"] },
+    { sector: "Tartas", palabras: ["tarta"] },
+    { sector: "Pizzas", palabras: ["pizza"] },
+    { sector: "Wraps", palabras: ["burrito", "wrap"] },
+    { sector: "Milanesas", palabras: ["milanesa", "suprema", "hamburguesa"] },
+  ],
+};

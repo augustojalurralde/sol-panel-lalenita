@@ -23,6 +23,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // No pide clave a la tarea automática (tiene su propia clave) ni a los archivos internos
-  matcher: ["/((?!api/sync|_next/static|_next/image|favicon.ico).*)"],
+  // No pide clave a las tareas automáticas ni a Tiendanube/Telegram (cada uno tiene su propia firma) ni a los archivos internos
+  matcher: ["/((?!api/sync|api/tiendanube|api/telegram|_next/static|_next/image|favicon.ico).*)"],
 };
