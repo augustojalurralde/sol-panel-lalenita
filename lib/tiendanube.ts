@@ -131,6 +131,8 @@ export interface PedidoTN {
   shipping_pickup_type?: string;
   shipping_store_branch_name?: string;
   shipping_pickup_details?: { name?: string; address?: { address?: string; number?: string } };
+  shipping_address?: { address?: string; number?: string; floor?: string; locality?: string; city?: string };
+  shipping_cost_customer?: number | string;
   created_at?: string;
 }
 
@@ -138,10 +140,15 @@ export const pedido = (id: number | string) => api<PedidoTN>(`/orders/${id}`);
 
 const texto = (x: unknown) => (typeof x === "string" ? x : x && typeof x === "object" ? Object.values(x as Record<string, string>)[0] ?? "" : "");
 
+export const ENVIO = "Envío a domicilio";
+
 /** Datos del pedido en el formato del SOL */
 export function leerPedido(p: PedidoTN) {
-  const retiro =
-    p.shipping_pickup_details?.name || p.shipping_store_branch_name || texto(p.shipping_option) || "Sin indicar";
+  // Envío a domicilio: se guarda en "retiro" con el prefijo ENVIO (así no hace falta otra columna)
+  const a = p.shipping_address;
+  const retiro = p.shipping_pickup_type === "ship"
+    ? `${ENVIO}: ${[[a?.address, a?.number].filter(Boolean).join(" "), a?.floor, a?.locality, a?.city].filter(Boolean).join(", ") || texto(p.shipping_option)}`
+    : p.shipping_pickup_details?.name || p.shipping_store_branch_name || texto(p.shipping_option) || "Sin indicar";
   return {
     numero: p.number ?? null,
     cliente: p.contact_name || p.customer?.name || "Sin nombre",

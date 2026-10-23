@@ -6,7 +6,7 @@
 import { reglasPedidosWeb as R } from "./config";
 import { db } from "./supabase";
 import { enviar, editar, grupoFabrica, html, type Teclado } from "./telegram";
-import { leerPedido, type PedidoTN } from "./tiendanube";
+import { ENVIO, leerPedido, type PedidoTN } from "./tiendanube";
 
 export type Estado = "pendiente" | "confirmado" | "en_produccion" | "listo" | "entregado" | "cancelado";
 
@@ -102,12 +102,16 @@ export function telefonoWhatsApp(tel: string) {
   return "549" + d;
 }
 
+export const esEnvio = (p: PedidoWeb) => p.retiro.startsWith(ENVIO);
+
 export function mensajeListo(p: PedidoWeb) {
   const nombre = p.cliente.split(" ")[0];
   return (
     `¡Hola ${nombre}! Te escribimos de La Leñita 🔥\n` +
     `Tu pedido #${p.numero ?? p.id} ya está listo.\n` +
-    `Podés retirarlo el ${textoFecha(p.fecha_compromiso)} en ${p.retiro}.\n` +
+    (esEnvio(p)
+      ? `Te lo llevamos el ${textoFecha(p.fecha_compromiso)} a ${p.retiro.slice(ENVIO.length + 2)}.\n`
+      : `Podés retirarlo el ${textoFecha(p.fecha_compromiso)} en ${p.retiro}.\n`) +
     (p.pago === "pagado" ? `El pago ya está acreditado. ` : `Total a abonar: ${pesos(p.total)}. `) +
     `¡Gracias por tu compra!`
   );
@@ -132,7 +136,7 @@ export function textoPedido(p: PedidoWeb) {
     `${e.icono} <b>${e.texto}</b>`,
     ``,
     `👤 ${html(p.cliente)}${p.telefono ? ` · ${html(p.telefono)}` : ""}`,
-    `📍 Retira en: <b>${html(p.retiro)}</b>`,
+    esEnvio(p) ? `🚚 <b>${html(p.retiro)}</b>` : `📍 Retira en: <b>${html(p.retiro)}</b>`,
     `⏰ Listo para: <b>${textoFecha(p.fecha_compromiso)}</b>`,
     `💰 ${pesos(p.total)} · ${p.pago === "pagado" ? "PAGADO ✔" : "pago pendiente (a convenir)"}${p.medio_pago ? ` · ${html(p.medio_pago)}` : ""}`,
     ``,
@@ -146,7 +150,7 @@ export function botones(p: PedidoWeb): Teclado {
   switch (p.estado) {
     case "pendiente": return [[b("✔ Confirmar", "confirmado"), b("❌ Cancelar", "cancelado")]];
     case "confirmado": return [[b("🔵 En producción", "en_produccion"), b("✅ Listo", "listo")], [b("❌ Cancelar", "cancelado")]];
-    case "en_produccion": return [[b("✅ Listo para retirar", "listo")]];
+    case "en_produccion": return [[b(esEnvio(p) ? "✅ Listo para enviar" : "✅ Listo para retirar", "listo")]];
     case "listo": {
       const wa = linkWhatsApp(p);
       return [[...(wa ? [{ text: "💬 Avisar al cliente", url: wa }] : []), b("📦 Entregado", "entregado")]];
